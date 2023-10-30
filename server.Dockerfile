@@ -1,11 +1,6 @@
 FROM rust:latest as server_builder
 
 WORKDIR /app
-COPY thepipelinetool thepipelinetool
-COPY runner runner
-COPY task task
-COPY utils utils
-WORKDIR /app/server
 COPY server/src/dummy.rs .
 COPY server/Cargo.toml .
 RUN sed -i 's#bin/server.rs#dummy.rs#' Cargo.toml
