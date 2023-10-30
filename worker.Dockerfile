@@ -15,6 +15,4 @@ FROM rust:latest
 WORKDIR /worker
 COPY --from=server_builder /usr/local/cargo/bin/worker /usr/local/bin/worker
 
-EXPOSE 8000
-
 CMD worker
