@@ -32,7 +32,7 @@ jobs:
           context: .
           file: server.Dockerfile
           push: true
-          platforms: linux/amd64, linux/arm64
+          platforms: linux/amd64 #, linux/arm64
           tags: ghcr.io/thepipelinetool/thepipelinetool-server-dev:latest
           cache-from: type=registry,ref=ghcr.io/thepipelinetool/thepipelinetool-server-dev:buildcache
           cache-to: type=registry,ref=ghcr.io/thepipelinetool/thepipelinetool-server-dev:buildcache,mode=max
@@ -57,7 +57,7 @@ jobs:
           context: .
           file: worker.Dockerfile
           push: true
-          platforms: linux/amd64, linux/arm64
+          platforms: linux/amd64 #, linux/arm64
           tags: ghcr.io/thepipelinetool/thepipelinetool-worker-dev:latest
           cache-from: type=registry,ref=ghcr.io/thepipelinetool/thepipelinetool-worker-dev:buildcache
           cache-to: type=registry,ref=ghcr.io/thepipelinetool/thepipelinetool-worker-dev:buildcache,mode=max
