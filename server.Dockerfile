@@ -7,6 +7,7 @@ RUN sed -i 's#bin/server.rs#dummy.rs#' Cargo.toml
 RUN cargo install --path . --bin server
 
 COPY server/Cargo.toml .
+RUN cargo update
 COPY server/src src
 COPY server/bin bin
 RUN cargo install --path . --bin server
