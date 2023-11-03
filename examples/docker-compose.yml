@@ -1,0 +1,8 @@
+services:
+  dag-server:
+    container_name: dag-server
+    build:
+      context: ../
+      dockerfile: ../server.Dockerfile
+    ports:
+      - 8000:8000

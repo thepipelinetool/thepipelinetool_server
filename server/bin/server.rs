@@ -4,7 +4,7 @@ use axum::{extract::Path, response::Html, Json, Router};
 use runner::{Runner, DefRunner, local::hash_dag};
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::Value;
-use server::{_get_edges, _get_tasks, db::Db, get_dags, DAGS_DIR};
+use server::{_get_edges, _get_tasks, db::Db, get_dags, DAGS_DIR, _get_options};
 // use task::task::Task;
 
 use axum::routing::get;
@@ -52,6 +52,10 @@ async fn get_runs(Path(dag_name): Path<String>) -> Html<String> {
     </html>";
 
     Html(res.to_string())
+}
+
+async fn get_options(Path(dag_name): Path<String>) -> Json<Value> {
+    _get_options(&dag_name).into()
 }
 
 async fn get_tasks(Path(dag_name): Path<String>) -> Json<Value> {
@@ -289,6 +293,7 @@ async fn main() {
     let app = Router::new()
         .route("/ping", get(ping))
         .route("/", get(home))
+        .route("/options/:dag_name", get(get_options))
         .route("/tasks/:dag_name", get(get_tasks))
         .route("/graph/:dag_name", get(get_graph))
         .route("/runs/:dag_name", get(get_runs))
