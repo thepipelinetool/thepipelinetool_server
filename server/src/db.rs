@@ -32,6 +32,12 @@ use task::task_result::TaskResult;
 use task::task_status::TaskStatus;
 // use thepipelinetool::prelude::*;
 
+fn get_db_url() -> String {
+    option_env!("POSTGRES_URL")
+        .unwrap_or("postgres://postgres:example@0.0.0.0:5432")
+        .to_string()
+}
+
 impl Db {
     pub async fn get_runs(dag_name: &str) -> Vec<usize> {
         tokio::task::block_in_place(|| {
@@ -211,15 +217,15 @@ impl Db {
     }
 
     async fn get_client() -> Pool<Postgres> {
-        // PgPoolOptions::new()
-        //     .connect("postgres://postgres:example@db:5432")
-        //     .await
-        //     .unwrap()
-
         PgPoolOptions::new()
-            .connect("postgres://postgres:example@localhost:5432")
+            .connect(&get_db_url())
             .await
             .unwrap()
+
+        // PgPoolOptions::new()
+        //     .connect("postgres://postgres:example@localhost:5432")
+        //     .await
+        //     .unwrap()
 
         // sqlx::query(
         //     "
