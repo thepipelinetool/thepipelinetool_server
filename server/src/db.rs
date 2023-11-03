@@ -33,9 +33,9 @@ use task::task_status::TaskStatus;
 // use thepipelinetool::prelude::*;
 
 fn get_db_url() -> String {
-    option_env!("POSTGRES_URL")
+   dbg!( option_env!("POSTGRES_URL")
         .unwrap_or("postgres://postgres:example@0.0.0.0:5432")
-        .to_string()
+        .to_string())
 }
 
 impl Db {
