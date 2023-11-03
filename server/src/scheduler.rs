@@ -11,7 +11,7 @@ use task::task::Task;
 use thepipelinetool::prelude::DagOptions;
 use tokio::time::sleep;
 
-use crate::{_get_dags, _get_edges, _get_options, _get_tasks, _run, db::Db};
+use crate::{_get_dags, _get_edges, _get_options, _get_tasks, _trigger_run, db::Db};
 
 pub fn scheduler(up_to: &DateTime<Utc>) {
     let up_to_initial = up_to.clone();
@@ -86,7 +86,7 @@ pub fn scheduler(up_to: &DateTime<Utc>) {
                                         continue 'inner;
                                     }
 
-                                    _run(&dag_name, time);
+                                    _trigger_run(&dag_name, time);
                                     println!("scheduling {} {dag_name}", time.format("%F %R"));
                                 }
                             }

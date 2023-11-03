@@ -6,7 +6,7 @@ use saffron::Cron;
 use task::task::Task;
 use thepipelinetool::prelude::DagOptions;
 
-use crate::{_get_dags, _get_edges, _get_options, _get_tasks, _run, db::Db};
+use crate::{_get_dags, _get_edges, _get_options, _get_tasks, _trigger_run, db::Db};
 
 pub fn catchup(up_to: &DateTime<Utc>) {
     let up_to: DateTime<Utc> = up_to.clone();
@@ -73,7 +73,7 @@ pub fn catchup(up_to: &DateTime<Utc>) {
                                     continue 'inner;
                                 }
 
-                                _run(&dag_name, time);
+                                _trigger_run(&dag_name, time);
                                 println!("scheduling catchup {dag_name} {}", time.format("%F %R"));
                             }
                         }

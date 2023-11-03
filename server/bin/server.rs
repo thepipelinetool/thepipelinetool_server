@@ -5,7 +5,7 @@ use chrono::Utc;
 use runner::{DefRunner, Runner};
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
-use server::{_get_dags, _get_edges, _get_options, _get_tasks, db::Db, DAGS_DIR, _run, catchup::catchup, scheduler::scheduler};
+use server::{_get_dags, _get_edges, _get_options, _get_tasks, db::Db, DAGS_DIR, _trigger_run, catchup::catchup, scheduler::scheduler};
 // use task::task::Task;
 
 use axum::routing::get;
@@ -271,16 +271,16 @@ async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Html<
     )
 }
 
-async fn run(Path(dag_name): Path<String>) {
-    _run(&dag_name, Utc::now().into());
+async fn trigger(Path(dag_name): Path<String>) {
+    _trigger_run(&dag_name, Utc::now().into());
 }
 
-async fn run_local(Path(dag_name): Path<String>) {
-    let nodes: Vec<Task> = serde_json::from_value(_get_tasks(&dag_name)).unwrap();
-    let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_edges(&dag_name)).unwrap();
+// async fn run_local(Path(dag_name): Path<String>) {
+//     let nodes: Vec<Task> = serde_json::from_value(_get_tasks(&dag_name)).unwrap();
+//     let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_edges(&dag_name)).unwrap();
 
-    Db::new(&dag_name, &nodes, &edges).run_dag_local(1);
-}
+//     Db::new(&dag_name, &nodes, &edges).run_dag_local(1);
+// }
 
 #[tokio::main]
 async fn main() {
@@ -301,8 +301,8 @@ async fn main() {
         .route("/runs/:dag_name", get(get_runs))
         .route("/graph/:dag_name/:run_id", get(get_run_graph))
         .route("/edges/:dag_name", get(get_edges))
-        .route("/run/:dag_name", get(run))
-        .route("/run_local/:dag_name", get(run_local));
+        .route("/trigger/:dag_name", get(trigger));
+        // .route("/run_local/:dag_name", get(run_local));
 
     axum::Server::bind(&"0.0.0.0:8000".parse().unwrap())
         .serve(app.into_make_service())

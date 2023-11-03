@@ -69,7 +69,7 @@ pub fn _get_dags() -> Vec<String> {
         .collect()
 }
 
-pub fn _run(dag_name: &str, logical_date: DateTime<Utc>) {
+pub fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>) {
     let nodes: Vec<Task> = serde_json::from_value(_get_tasks(&dag_name)).unwrap();
     let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_edges(&dag_name)).unwrap();
 
