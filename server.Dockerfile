@@ -10,7 +10,7 @@ COPY server/Cargo.toml .
 RUN cargo update
 COPY server/src src
 COPY server/bin bin
-RUN cargo install --path . --bin server
+RUN cargo install --path . --bin server --offline --frozen
 
 FROM rust:latest
 WORKDIR /server
