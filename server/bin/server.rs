@@ -1,12 +1,15 @@
 use std::{collections::HashSet, process::Command};
 
 use axum::{extract::Path, response::Html, Json, Router};
-use chrono::Utc;
+use chrono::{DateTime, FixedOffset, Utc};
 use runner::{local::hash_dag, DefRunner, Runner};
-use saffron::{parse::{CronExpr, English}, Cron};
+use saffron::{
+    parse::{CronExpr, English},
+    Cron,
+};
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
-use server::{_get_dags, _get_edges, _get_options, _get_tasks, db::Db, DAGS_DIR};
+use server::{_get_dags, _get_edges, _get_options, _get_tasks, db::Db, DAGS_DIR, _run, catchup::catchup, scheduler::scheduler};
 // use task::task::Task;
 
 use axum::routing::get;
@@ -273,15 +276,7 @@ async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Html<
 }
 
 async fn run(Path(dag_name): Path<String>) {
-    let nodes: Vec<Task> = serde_json::from_value(_get_tasks(&dag_name)).unwrap();
-    let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_edges(&dag_name)).unwrap();
-
-    let hash = hash_dag(
-        &serde_json::to_string(&nodes).unwrap(),
-        &edges.iter().collect::<Vec<&(usize, usize)>>(),
-    );
-
-    Db::new(&dag_name, &nodes, &edges).enqueue_run(&dag_name, &hash);
+    _run(&dag_name, Utc::now().into());
 }
 
 async fn run_local(Path(dag_name): Path<String>) {
@@ -295,66 +290,10 @@ async fn run_local(Path(dag_name): Path<String>) {
 async fn main() {
     Db::init_tables().await;
 
-    tokio::spawn(async {
-        let dags = _get_dags();
+    let now = Utc::now();
 
-        for dag_name in dags {
-            let options: DagOptions = serde_json::from_value(_get_options(&dag_name)).unwrap();
-            if let Some(schedule) = &options.schedule {
-                println!("Schedule: {schedule}");
-                match schedule.parse::<CronExpr>() {
-                    Ok(cron) => {
-                        println!("Description: {}", cron.describe(English::default()));
-                    }
-                    Err(err) => {
-                        println!("{err}: {schedule}");
-                        return;
-                    }
-                }
-
-                match schedule.parse::<Cron>() {
-                    Ok(cron) => {
-                        if !cron.any() {
-                            println!("Cron will never match any given time!");
-                            return;
-                        }
-
-                        if let Some(start_date) = options.start_date {
-                            println!("Start date: {start_date}");
-                        } else {
-                            println!("Start date: None");
-                        }
-
-                        println!("Upcoming:");
-                        let futures = cron.clone().iter_from(
-                            if let Some(start_date) = options.start_date {
-                                if options.catchup {
-                                    start_date.into()
-                                } else {
-                                    Utc::now()
-                                }
-                            } else {
-                                Utc::now()
-                            },
-                        );
-                        for time in futures.take(10) {
-                            if !cron.contains(time) {
-                                println!("Failed check! Cron does not contain {}.", time);
-                                break;
-                            }
-                            if let Some(end_date) = options.end_date {
-                                if time > end_date {
-                                    break;
-                                }
-                            }
-                            println!("  {}", time.format("%F %R"));
-                        }
-                    }
-                    Err(err) => println!("{err}: {schedule}"),
-                }
-            }
-        }
-    });
+    catchup(&now);
+    scheduler(&now);
 
     let app = Router::new()
         .route("/ping", get(ping))

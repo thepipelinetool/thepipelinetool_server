@@ -3,7 +3,7 @@ use std::collections::HashSet;
 // use thepipelinetool::prelude::*;
 
 use runner::{local::hash_dag, Runner, DefRunner};
-use server::{_get_edges, _get_tasks, db::Db, _get_dags};
+use server::{_get_edges, _get_tasks, _get_dags, db::Db};
 use task::task::Task;
 
 #[tokio::main]

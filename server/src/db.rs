@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use chrono::{DateTime, FixedOffset, Utc};
 use runner::Runner;
 // use runner::Runner;
 // use rocket::tokio;
@@ -114,6 +115,7 @@ impl Db {
                 dag_id  TEXT,
                 dag_name    TEXT,
                 timestamp timestamptz not null default NOW(),
+                logical_date timestamptz not null,
                 PRIMARY KEY (run_id, dag_id)
             );
             ",
@@ -209,15 +211,15 @@ impl Db {
     }
 
     async fn get_client() -> Pool<Postgres> {
-        PgPoolOptions::new()
-            .connect("postgres://postgres:example@db:5432")
-            .await
-            .unwrap()
-
         // PgPoolOptions::new()
-        //     .connect("postgres://postgres:example@172.21.0.2:5432")
+        //     .connect("postgres://postgres:example@db:5432")
         //     .await
         //     .unwrap()
+
+        PgPoolOptions::new()
+            .connect("postgres://postgres:example@localhost:5432")
+            .await
+            .unwrap()
 
         // sqlx::query(
         //     "
@@ -365,6 +367,26 @@ impl Db {
         //     .ok();
 
         // client
+    }
+
+    pub fn contains_logical_date(dag_name: &str, dag_hash: &str, logical_date: DateTime<Utc>) -> bool {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let client = Db::get_client().await;
+                
+
+                let task = sqlx::query(
+                    "SELECT EXISTS(SELECT 1 FROM runs WHERE dag_id = $1 AND dag_name = $2 AND logical_date = $3 )",
+                )
+                .bind(dag_hash)
+                .bind(dag_name)
+                .bind(logical_date)
+                .fetch_one(&client)
+                .await;
+                
+                task.unwrap().get(0)
+            })
+        })
     }
 }
 
@@ -576,7 +598,12 @@ impl Runner for Db {
         });
     }
 
-    fn create_new_run(&mut self, dag_name: &str, dag_hash: &str) -> usize {
+    fn create_new_run(
+        &mut self,
+        dag_name: &str,
+        dag_hash: &str,
+        logical_date: DateTime<Utc>,
+    ) -> usize {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 let client = Db::get_client().await;
@@ -597,13 +624,14 @@ impl Runner for Db {
 
                 let dag_run_id: i32 = sqlx::query(
                     "
-                        INSERT INTO runs (dag_id, dag_name)
-                        VALUES ($1, $2)
+                        INSERT INTO runs (dag_id, dag_name, logical_date)
+                        VALUES ($1, $2, $3)
                         RETURNING run_id;                    
                     ",
                 )
                 .bind(dag_hash)
                 .bind(dag_name)
+                .bind(logical_date)
                 .fetch_one(&client)
                 .await
                 .unwrap()
