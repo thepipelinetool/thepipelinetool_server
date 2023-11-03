@@ -3,9 +3,21 @@ services:
   #   container_name: dag-server
   #   build:
   #     context: .
-  #     dockerfile: Dockerfile
+  #     dockerfile: server.Dockerfile
   #   ports:
   #     - 8000:8000
+  #   environment:
+  #     - POSTGRES_URL=postgres://postgres:example@db:5432
+  # dag-worker:
+  #   build:
+  #     context: .
+  #     dockerfile: worker.Dockerfile
+  #   deploy:
+  #     mode: replicated
+  #     replicas: 2
+  #   restart: always
+  #   environment:
+  #     - POSTGRES_URL=postgres://postgres:example@db:5432
   db:
     container_name: db
     image: postgres
