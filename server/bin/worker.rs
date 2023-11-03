@@ -3,13 +3,13 @@ use std::collections::HashSet;
 // use thepipelinetool::prelude::*;
 
 use runner::{local::hash_dag, Runner, DefRunner};
-use server::{_get_edges, _get_tasks, db::Db, get_dags};
+use server::{_get_edges, _get_tasks, db::Db, _get_dags};
 use task::task::Task;
 
 #[tokio::main]
 async fn main() {
     loop {
-        for dag_name in get_dags() {
+        for dag_name in _get_dags() {
             let all_runs = Db::get_all_runs(&dag_name).await;
 
             for (run_id, dag_id) in all_runs {

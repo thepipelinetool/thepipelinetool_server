@@ -1,15 +1,17 @@
 use std::{collections::HashSet, process::Command};
 
 use axum::{extract::Path, response::Html, Json, Router};
-use runner::{Runner, DefRunner, local::hash_dag};
+use chrono::Utc;
+use runner::{local::hash_dag, DefRunner, Runner};
+use saffron::{parse::{CronExpr, English}, Cron};
 // use runner::{local::hash_dag, DefRunner, Runner};
-use serde_json::Value;
-use server::{_get_edges, _get_tasks, db::Db, get_dags, DAGS_DIR, _get_options};
+use serde_json::{json, Value};
+use server::{_get_dags, _get_edges, _get_options, _get_tasks, db::Db, DAGS_DIR};
 // use task::task::Task;
 
 use axum::routing::get;
 use task::task::Task;
-// use thepipelinetool::prelude::*;
+use thepipelinetool::prelude::*;
 
 async fn ping() -> &'static str {
     "pong"
@@ -22,7 +24,7 @@ async fn home() -> Html<String> {
         <body>
     "
     .to_string()
-        + &get_dags()
+        + &_get_dags()
             .iter()
             .map(|f| format!("<a href=\"/runs/{f}\">{f}</a>"))
             .collect::<Vec<String>>()
@@ -64,6 +66,10 @@ async fn get_tasks(Path(dag_name): Path<String>) -> Json<Value> {
 
 async fn get_edges(Path(dag_name): Path<String>) -> Json<Value> {
     _get_edges(&dag_name).into()
+}
+
+async fn get_dags() -> Json<Value> {
+    json!(_get_dags()).into()
 }
 
 async fn get_graph(Path(dag_name): Path<String>) -> Html<String> {
@@ -285,14 +291,75 @@ async fn run_local(Path(dag_name): Path<String>) {
     Db::new(&dag_name, &nodes, &edges).run_dag_local(1);
 }
 
-
 #[tokio::main]
 async fn main() {
     Db::init_tables().await;
 
+    tokio::spawn(async {
+        let dags = _get_dags();
+
+        for dag_name in dags {
+            let options: DagOptions = serde_json::from_value(_get_options(&dag_name)).unwrap();
+            if let Some(schedule) = &options.schedule {
+                println!("Schedule: {schedule}");
+                match schedule.parse::<CronExpr>() {
+                    Ok(cron) => {
+                        println!("Description: {}", cron.describe(English::default()));
+                    }
+                    Err(err) => {
+                        println!("{err}: {schedule}");
+                        return;
+                    }
+                }
+
+                match schedule.parse::<Cron>() {
+                    Ok(cron) => {
+                        if !cron.any() {
+                            println!("Cron will never match any given time!");
+                            return;
+                        }
+
+                        if let Some(start_date) = options.start_date {
+                            println!("Start date: {start_date}");
+                        } else {
+                            println!("Start date: None");
+                        }
+
+                        println!("Upcoming:");
+                        let futures = cron.clone().iter_from(
+                            if let Some(start_date) = options.start_date {
+                                if options.catchup {
+                                    start_date.into()
+                                } else {
+                                    Utc::now()
+                                }
+                            } else {
+                                Utc::now()
+                            },
+                        );
+                        for time in futures.take(10) {
+                            if !cron.contains(time) {
+                                println!("Failed check! Cron does not contain {}.", time);
+                                break;
+                            }
+                            if let Some(end_date) = options.end_date {
+                                if time > end_date {
+                                    break;
+                                }
+                            }
+                            println!("  {}", time.format("%F %R"));
+                        }
+                    }
+                    Err(err) => println!("{err}: {schedule}"),
+                }
+            }
+        }
+    });
+
     let app = Router::new()
         .route("/ping", get(ping))
         .route("/", get(home))
+        .route("/dags", get(get_dags))
         .route("/options/:dag_name", get(get_options))
         .route("/tasks/:dag_name", get(get_tasks))
         .route("/graph/:dag_name", get(get_graph))

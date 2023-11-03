@@ -1,0 +1,1 @@
+docker build -t ghcr.io/thepipelinetool/thepipelinetool-server-dev:latest -f ../server.Dockerfile ../

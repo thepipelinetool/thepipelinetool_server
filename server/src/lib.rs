@@ -36,7 +36,7 @@ pub fn _get_options(dag_name: &str) -> Value {
     serde_json::from_str(result_raw.as_ref()).unwrap()
 }
 
-pub fn get_dags() -> Vec<String> {
+pub fn _get_dags() -> Vec<String> {
     let paths: Vec<PathBuf> = match fs::read_dir(DAGS_DIR) {
         Err(e) if e.kind() == ErrorKind::NotFound => Vec::new(),
         Err(e) => panic!("Unexpected Error! {:?}", e),
