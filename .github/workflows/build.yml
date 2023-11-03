@@ -1,11 +1,11 @@
-name: build-dev
+name: build
 
 on:
   push:
     branches:
       - '**'
     paths:
-      - .github/workflows/build-dev.yml
+      - .github/workflows/build.yml
       - server/**
       - server.Dockerfile
       - worker.Dockerfile
