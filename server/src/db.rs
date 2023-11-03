@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::env;
 
 use chrono::{DateTime, Utc};
 use runner::Runner;
@@ -33,9 +34,9 @@ use task::task_status::TaskStatus;
 // use thepipelinetool::prelude::*;
 
 fn get_db_url() -> String {
-   dbg!( option_env!("POSTGRES_URL")
-        .unwrap_or("postgres://postgres:example@0.0.0.0:5432")
-        .to_string())
+   env::var("POSTGRES_URL")
+        .unwrap_or("postgres://postgres:example@0.0.0.0:5432".to_string())
+        .to_string()
 }
 
 impl Db {
