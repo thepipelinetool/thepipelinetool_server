@@ -63,9 +63,9 @@ async fn get_tasks(Path(dag_name): Path<String>) -> Json<Value> {
     _get_tasks(&dag_name).into()
 }
 
-async fn get_edges(Path(dag_name): Path<String>) -> Json<Value> {
-    _get_edges(&dag_name).into()
-}
+// async fn get_edges(Path(dag_name): Path<String>) -> Json<Value> {
+//     _get_edges(&dag_name).into()
+// }
 
 async fn get_dags() -> Json<Value> {
     json!(_get_dags()).into()
@@ -302,7 +302,7 @@ async fn main() {
         .route("/graph/:dag_name", get(get_graph))
         .route("/runs/:dag_name", get(get_runs))
         .route("/graph/:dag_name/:run_id", get(get_run_graph))
-        .route("/edges/:dag_name", get(get_edges))
+        // .route("/edges/:dag_name", get(get_edges))
         .route("/trigger/:dag_name", get(trigger))
         .layer(
             CorsLayer::new()
