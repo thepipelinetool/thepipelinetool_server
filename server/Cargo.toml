@@ -16,6 +16,7 @@ utils = { git = "https://github.com/thepipelinetool/thepipelinetool.git" }
 sqlx = { version = "0.7", default-features = false, features = [ "runtime-tokio", "postgres", "json", "chrono" ] }
 
 # server deps
+tower-http = { version = "0.4.4", features = [ "cors" ] }
 saffron = { git = "https://github.com/cloudflare/saffron.git" }
 chrono = { version = "0.4.31", features = [ "serde" ] }
 

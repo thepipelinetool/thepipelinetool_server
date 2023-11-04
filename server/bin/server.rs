@@ -1,12 +1,13 @@
 use std::{collections::HashSet, process::Command};
 
-use axum::{extract::Path, response::Html, Json, Router};
+use axum::{extract::Path, response::Html, Json, Router, http::Method};
 use chrono::Utc;
 use runner::{DefRunner, Runner};
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
 use server::{_get_dags, _get_edges, _get_options, _get_tasks, db::Db, DAGS_DIR, _trigger_run, catchup::catchup, scheduler::scheduler};
 // use task::task::Task;
+use tower_http::cors::{CorsLayer, Any};
 
 use axum::routing::get;
 
@@ -281,6 +282,8 @@ async fn trigger(Path(dag_name): Path<String>) {
 //     Db::new(&dag_name, &nodes, &edges).run_dag_local(1);
 // }
 
+
+
 #[tokio::main]
 async fn main() {
     Db::init_tables().await;
@@ -300,8 +303,12 @@ async fn main() {
         .route("/runs/:dag_name", get(get_runs))
         .route("/graph/:dag_name/:run_id", get(get_run_graph))
         .route("/edges/:dag_name", get(get_edges))
-        .route("/trigger/:dag_name", get(trigger));
-        // .route("/run_local/:dag_name", get(run_local));
+        .route("/trigger/:dag_name", get(trigger))
+        .layer(
+            CorsLayer::new()
+            .allow_methods([Method::GET, Method::POST])
+            .allow_origin(Any)
+        );
 
     axum::Server::bind(&"0.0.0.0:8000".parse().unwrap())
         .serve(app.into_make_service())
