@@ -1,13 +1,13 @@
-use std::{collections::HashSet, process::Command};
+use std::collections::HashSet;
 
-use axum::{extract::Path, http::Method, response::Html, Json, Router};
+use axum::{extract::Path, http::Method, Json, Router};
 use chrono::Utc;
 use runner::{local::LocalRunner, DefRunner, Runner};
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
 use server::{
     _get_dags, _get_edges, _get_options, _get_tasks, _trigger_run, catchup::catchup, db::Db,
-    scheduler::scheduler, DAGS_DIR,
+    scheduler::scheduler,
 };
 use task::task::Task;
 // use task::task::Task;
@@ -19,48 +19,9 @@ async fn ping() -> &'static str {
     "pong"
 }
 
-// async fn _home() -> Html<String> {
-//     let res = "
-//     <!DOCTYPE html>
-//         <html>
-//         <body>
-//     "
-//     .to_string()
-//         + &_get_dags()
-//             .iter()
-//             .map(|f| format!("<a href=\"/runs/{f}\">{f}</a>"))
-//             .collect::<Vec<String>>()
-//             .join(" ")
-//         + "
-//     </body>
-//     </html>";
-
-//     Html(res.to_string())
-// }
-
 async fn get_runs(Path(dag_name): Path<String>) -> Json<Value> {
     json!(Db::get_runs(&dag_name).await).into()
 }
-
-// async fn _get_runs(Path(dag_name): Path<String>) -> Html<String> {
-//     let res = "
-//     <!DOCTYPE html>
-//         <html>
-//         <body>
-//     "
-//     .to_string()
-//         + &Db::get_runs(&dag_name)
-//             .await
-//             .iter()
-//             .map(|f| format!("<a href=\"/graph/{dag_name}/{f}\">{f}</a>"))
-//             .collect::<Vec<String>>()
-//             .join(" ")
-//         + "
-//     </body>
-//     </html>";
-
-//     Html(res.to_string())
-// }
 
 async fn get_options(Path(dag_name): Path<String>) -> Json<Value> {
     _get_options(&dag_name).into()
@@ -72,253 +33,32 @@ async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
 
 async fn get_run_tasks(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<Value> {
     let runner = Db::new(&dag_name, &[], &HashSet::new());
-
     json!(runner.get_all_tasks(&run_id)).into()
 }
-
-
-// async fn get_edges(Path(dag_name): Path<String>) -> Json<Value> {
-//     _get_edges(&dag_name).into()
-// }
 
 async fn get_dags() -> Json<Value> {
     json!(_get_dags()).into()
 }
 
-// async fn _get_graph(Path(dag_name): Path<String>) -> Html<String> {
-//     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
-//         .arg("graph")
-//         .output()
-//         .expect("failed to run");
-
-//     let result_raw = String::from_utf8_lossy(&output.stdout).to_string();
-//     format!(
-//         "
-//         <html>
-//         <body>
-//             {dag_name}
-//             <pre class=\"mermaid\">
-//                 {result_raw}
-//             </pre>
-
-//             <script type=\"module\">
-//             import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-//             mermaid.initialize({{ startOnLoad: true }});
-//             </script>
-//         </body>
-//         </html>
-//     "
-//     )
-//     .into()
-// }
-
 async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<Value> {
     let runner = Db::new(&dag_name, &[], &HashSet::new());
-    // let completed = runner.is_completed(&run_id);
     let graph = runner.get_graphite_graph(&run_id);
-
     json!(graph).into()
 }
 
 async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
-    // let runner = Db::new(&dag_name, &[], &HashSet::new());
-    // // let completed = runner.is_completed(&run_id);
-    // let graph = runner.get_graphite_graph(&run_id);
     let nodes: Vec<Task> = serde_json::from_value(_get_tasks(&dag_name)).unwrap();
     let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_edges(&dag_name)).unwrap();
-    // pub fn get_initial_mermaid_graph(&self) -> String {
     let mut runner = LocalRunner::new("", &nodes, &edges);
     runner.enqueue_run("local", "", Utc::now().into());
-    // runner.get_mermaid_graph(&0)
     let graph = runner.get_graphite_graph(&0);
-    // }
 
     json!(graph).into()
 }
 
-// async fn _get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Html<String> {
-//     let runner = Db::new(&dag_name, &[], &HashSet::new());
-//     let completed = runner.is_completed(&run_id);
-//     // let graph = runner.get_mermaid_graph(&run_id);
-
-//     axum::response::Html(
-//         format!(
-//             "
-//         <!DOCTYPE html>
-//         <html>
-//         <body>
-//             {dag_name}
-//             <pre class=\"mermaid\">
-//                 {graph}
-//             </pre>"
-//         ) + r#"
-
-//             <label class="switch">
-//             <input type="checkbox" id="toggleRefresh">
-//             <span class="slider round"></span>
-//             </label>
-
-//             <!-- Display text for the auto-refresh status -->
-//             <span id="refreshStatus">Auto-Refresh (ON/OFF)</span>
-//             <div id="customTooltip" style="display: none; position: absolute; border: 1px solid black; background-color: white; padding: 10px;">
-//                 <!-- Your custom content here -->
-//                 Hovered Node Info
-//             </div>
-
-//             <style>
-//                 /* The switch container */
-//                 .switch {
-//                     position: relative;
-//                     display: inline-block;
-//                     width: 60px;
-//                     height: 34px;
-//                 }
-
-//                 /* The switch checkbox (hidden) */
-//                 .switch input {
-//                     opacity: 0;
-//                     width: 0;
-//                     height: 0;
-//                 }
-
-//                 /* The slider */
-//                 .slider {
-//                     position: absolute;
-//                     cursor: pointer;
-//                     top: 0;
-//                     left: 0;
-//                     right: 0;
-//                     bottom: 0;
-//                     background-color: #ccc;
-//                     transition: 0.4s;
-//                 }
-
-//                 .slider:before {
-//                     position: absolute;
-//                     content: "";
-//                     height: 26px;
-//                     width: 26px;
-//                     left: 4px;
-//                     bottom: 4px;
-//                     background-color: white;
-//                     transition: 0.4s;
-//                 }
-
-//                 /* When the checkbox is checked, change the slider's color and position */
-//                 input:checked + .slider {
-//                     background-color: #2196F3;
-//                 }
-
-//                 input:checked + .slider:before {
-//                     transform: translateX(26px);
-//                 }
-
-//                 /* Rounded sliders */
-//                 .slider.round {
-//                     border-radius: 34px;
-//                 }
-
-//                 .slider.round:before {
-//                     border-radius: 50%;
-//                 }
-
-//             </style>
-//             <script type="module">
-//                 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-//                 mermaid.initialize({
-//                     startOnLoad: false,
-//                     securityLevel: 'loose',  // This may be required for some versions of Mermaid to allow certain content.
-//                     theme: 'default',
-//                 });
-//                 // mermaid.initialize({ startOnLoad: false });
-//                 await mermaid.run({
-//                 querySelector: '.mermaid',
-//                 postRenderCallback:
-//                 function() {
-//                     const nodes = document.querySelectorAll('.mermaid .node');
-//                     // console.log("world");
-//                     // console.log(nodes);
-//                     nodes.forEach(node => {
-//                         // console.log("r");
-//                         node.addEventListener('mouseenter', function(event) {
-//                             const tooltip = document.getElementById('customTooltip');
-//                             console.log("hello");
-//                             // Set the content of the tooltip based on the hovered node.
-//                             // For this example, I'm just using the node's text content.
-//                             tooltip.innerHTML = node.textContent;
-
-//                             tooltip.style.display = 'block';
-//                             tooltip.style.left = event.pageX + 'px';
-//                             tooltip.style.top = (event.pageY - tooltip.offsetHeight) + 'px';
-//                         });
-//                         // console.log("w");
-
-//                         node.addEventListener('mouseleave', function() {
-//                             const tooltip = document.getElementById('customTooltip');
-//                             tooltip.style.display = 'none';
-//                         });
-//                         // console.log("t");
-
-//                     });
-//                 }
-//                 });
-//             "#
-//             + &format!(
-//                 "
-//                 let isRefreshing = {};",
-//                 !completed
-//             )
-//             + r#"
-//                 const toggleSwitch = document.getElementById('toggleRefresh');
-//                 toggleSwitch.checked = isRefreshing;
-
-//                 const refreshStatus = document.getElementById('refreshStatus');
-
-//                 const setSwitchText = () => {
-//                     refreshStatus.textContent = isRefreshing ? "Auto-Refresh (ON)" : "Auto-Refresh (OFF)";
-//                 };
-
-//                 const toggleRefresh = () => {
-//                     if (isRefreshing) {
-//                         clearTimeout(refreshTimeout);
-//                     } else {
-//                         scheduleRefresh();
-//                     }
-//                     isRefreshing = !isRefreshing;
-//                     setSwitchText();
-//                 };
-
-//                 toggleSwitch.addEventListener('change', toggleRefresh);
-
-//                 let refreshTimeout;
-//                 const scheduleRefresh = () => {
-//                     refreshTimeout = setTimeout(function() {
-//                         location.reload();
-//                     }, 5000);
-//                 };
-
-//                 setSwitchText();
-//                 if (isRefreshing) {
-//                     scheduleRefresh();
-//                     toggleSwitch.checked = true; // Set the initial state of the toggle switch
-//                 }
-//             </script>
-//         </body>
-//         </html>
-//     "#,
-//     )
-// }
-
 async fn trigger(Path(dag_name): Path<String>) {
     _trigger_run(&dag_name, Utc::now().into());
 }
-
-// async fn run_local(Path(dag_name): Path<String>) {
-//     let nodes: Vec<Task> = serde_json::from_value(_get_tasks(&dag_name)).unwrap();
-//     let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_edges(&dag_name)).unwrap();
-
-//     Db::new(&dag_name, &nodes, &edges).run_dag_local(1);
-// }
 
 #[tokio::main]
 async fn main() {
@@ -336,11 +76,9 @@ async fn main() {
         .route("/options/:dag_name", get(get_options))
         .route("/tasks/:dag_name/:run_id", get(get_run_tasks))
         .route("/default_tasks/:dag_name", get(get_default_tasks))
-        // .route("/graph/:dag_name", get(get_graph))
         .route("/runs/:dag_name", get(get_runs))
         .route("/graph/:dag_name/:run_id", get(get_run_graph))
         .route("/default_graph/:dag_name", get(get_default_graph))
-
         // .route("/edges/:dag_name", get(get_edges))
         .route("/trigger/:dag_name", get(trigger))
         .layer(
