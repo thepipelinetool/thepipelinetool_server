@@ -66,9 +66,16 @@ async fn get_options(Path(dag_name): Path<String>) -> Json<Value> {
     _get_options(&dag_name).into()
 }
 
-async fn get_tasks(Path(dag_name): Path<String>) -> Json<Value> {
+async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
     _get_tasks(&dag_name).into()
 }
+
+async fn get_run_tasks(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<Value> {
+    let runner = Db::new(&dag_name, &[], &HashSet::new());
+
+    json!(runner.get_all_tasks(&run_id)).into()
+}
+
 
 // async fn get_edges(Path(dag_name): Path<String>) -> Json<Value> {
 //     _get_edges(&dag_name).into()
@@ -327,7 +334,8 @@ async fn main() {
         // .route("/", get(home))
         .route("/dags", get(get_dags))
         .route("/options/:dag_name", get(get_options))
-        .route("/tasks/:dag_name", get(get_tasks))
+        .route("/tasks/:dag_name/:run_id", get(get_run_tasks))
+        .route("/default_tasks/:dag_name", get(get_default_tasks))
         // .route("/graph/:dag_name", get(get_graph))
         .route("/runs/:dag_name", get(get_runs))
         .route("/graph/:dag_name/:run_id", get(get_run_graph))
