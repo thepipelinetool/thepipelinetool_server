@@ -23,9 +23,9 @@ async fn get_runs(Path(dag_name): Path<String>) -> Json<Value> {
     json!(Db::get_runs(&dag_name).await).into()
 }
 
-async fn get_options(Path(dag_name): Path<String>) -> Json<Value> {
-    _get_options(&dag_name).into()
-}
+// async fn get_options(Path(dag_name): Path<String>) -> Json<Value> {
+//     _get_options(&dag_name).into()
+// }
 
 async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
     _get_tasks(&dag_name).into()
@@ -37,7 +37,16 @@ async fn get_run_tasks(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<
 }
 
 async fn get_dags() -> Json<Value> {
-    json!(_get_dags()).into()
+    let mut res: Vec<Value> = vec![];
+
+    for dag_name in _get_dags() {
+        let mut o = _get_options(&dag_name);
+        o["dag_name"] = dag_name.into();
+
+        res.push(o);
+    }
+
+    json!(res).into()
 }
 
 async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<Value> {
@@ -74,7 +83,7 @@ async fn main() {
         //
         .route("/dags", get(get_dags))
         //
-        .route("/options/:dag_name", get(get_options))
+        // .route("/options/:dag_name", get(get_options))
         .route("/runs/:dag_name", get(get_runs))
         .route("/trigger/:dag_name", get(trigger))
         //
