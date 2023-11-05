@@ -1,16 +1,19 @@
 use std::{collections::HashSet, process::Command};
 
-use axum::{extract::Path, response::Html, Json, Router, http::Method};
+use axum::{extract::Path, http::Method, response::Html, Json, Router};
 use chrono::Utc;
-use runner::{DefRunner, Runner};
+use runner::{local::LocalRunner, DefRunner, Runner};
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
-use server::{_get_dags, _get_edges, _get_options, _get_tasks, db::Db, DAGS_DIR, _trigger_run, catchup::catchup, scheduler::scheduler};
+use server::{
+    _get_dags, _get_edges, _get_options, _get_tasks, _trigger_run, catchup::catchup, db::Db,
+    scheduler::scheduler, DAGS_DIR,
+};
+use task::task::Task;
 // use task::task::Task;
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::{Any, CorsLayer};
 
 use axum::routing::get;
-
 
 async fn ping() -> &'static str {
     "pong"
@@ -110,6 +113,22 @@ async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<
     json!(graph).into()
 }
 
+async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
+    // let runner = Db::new(&dag_name, &[], &HashSet::new());
+    // // let completed = runner.is_completed(&run_id);
+    // let graph = runner.get_graphite_graph(&run_id);
+    let nodes: Vec<Task> = serde_json::from_value(_get_tasks(&dag_name)).unwrap();
+    let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_edges(&dag_name)).unwrap();
+    // pub fn get_initial_mermaid_graph(&self) -> String {
+    let mut runner = LocalRunner::new("", &nodes, &edges);
+    runner.enqueue_run("local", "", Utc::now().into());
+    // runner.get_mermaid_graph(&0)
+    let graph = runner.get_graphite_graph(&0);
+    // }
+
+    json!(graph).into()
+}
+
 // async fn _get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Html<String> {
 //     let runner = Db::new(&dag_name, &[], &HashSet::new());
 //     let completed = runner.is_completed(&run_id);
@@ -138,7 +157,7 @@ async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<
 //                 <!-- Your custom content here -->
 //                 Hovered Node Info
 //             </div>
-        
+
 //             <style>
 //                 /* The switch container */
 //                 .switch {
@@ -147,14 +166,14 @@ async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<
 //                     width: 60px;
 //                     height: 34px;
 //                 }
-                
+
 //                 /* The switch checkbox (hidden) */
 //                 .switch input {
 //                     opacity: 0;
 //                     width: 0;
 //                     height: 0;
 //                 }
-                
+
 //                 /* The slider */
 //                 .slider {
 //                     position: absolute;
@@ -166,7 +185,7 @@ async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<
 //                     background-color: #ccc;
 //                     transition: 0.4s;
 //                 }
-                
+
 //                 .slider:before {
 //                     position: absolute;
 //                     content: "";
@@ -177,29 +196,29 @@ async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<
 //                     background-color: white;
 //                     transition: 0.4s;
 //                 }
-                
+
 //                 /* When the checkbox is checked, change the slider's color and position */
 //                 input:checked + .slider {
 //                     background-color: #2196F3;
 //                 }
-                
+
 //                 input:checked + .slider:before {
 //                     transform: translateX(26px);
 //                 }
-                
+
 //                 /* Rounded sliders */
 //                 .slider.round {
 //                     border-radius: 34px;
 //                 }
-                
+
 //                 .slider.round:before {
 //                     border-radius: 50%;
 //                 }
-            
+
 //             </style>
 //             <script type="module">
 //                 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-//                 mermaid.initialize({ 
+//                 mermaid.initialize({
 //                     startOnLoad: false,
 //                     securityLevel: 'loose',  // This may be required for some versions of Mermaid to allow certain content.
 //                     theme: 'default',
@@ -207,7 +226,7 @@ async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<
 //                 // mermaid.initialize({ startOnLoad: false });
 //                 await mermaid.run({
 //                 querySelector: '.mermaid',
-//                 postRenderCallback: 
+//                 postRenderCallback:
 //                 function() {
 //                     const nodes = document.querySelectorAll('.mermaid .node');
 //                     // console.log("world");
@@ -217,10 +236,10 @@ async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<
 //                         node.addEventListener('mouseenter', function(event) {
 //                             const tooltip = document.getElementById('customTooltip');
 //                             console.log("hello");
-//                             // Set the content of the tooltip based on the hovered node. 
+//                             // Set the content of the tooltip based on the hovered node.
 //                             // For this example, I'm just using the node's text content.
 //                             tooltip.innerHTML = node.textContent;
-                
+
 //                             tooltip.style.display = 'block';
 //                             tooltip.style.left = event.pageX + 'px';
 //                             tooltip.style.top = (event.pageY - tooltip.offsetHeight) + 'px';
@@ -275,7 +294,7 @@ async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<
 //                 if (isRefreshing) {
 //                     scheduleRefresh();
 //                     toggleSwitch.checked = true; // Set the initial state of the toggle switch
-//                 }            
+//                 }
 //             </script>
 //         </body>
 //         </html>
@@ -293,8 +312,6 @@ async fn trigger(Path(dag_name): Path<String>) {
 
 //     Db::new(&dag_name, &nodes, &edges).run_dag_local(1);
 // }
-
-
 
 #[tokio::main]
 async fn main() {
@@ -314,12 +331,14 @@ async fn main() {
         // .route("/graph/:dag_name", get(get_graph))
         .route("/runs/:dag_name", get(get_runs))
         .route("/graph/:dag_name/:run_id", get(get_run_graph))
+        .route("/default_graph/:dag_name", get(get_default_graph))
+
         // .route("/edges/:dag_name", get(get_edges))
         .route("/trigger/:dag_name", get(trigger))
         .layer(
             CorsLayer::new()
-            .allow_methods([Method::GET, Method::POST])
-            .allow_origin(Any)
+                .allow_methods([Method::GET, Method::POST])
+                .allow_origin(Any),
         );
 
     axum::Server::bind(&"0.0.0.0:8000".parse().unwrap())
