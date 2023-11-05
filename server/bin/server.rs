@@ -71,16 +71,18 @@ async fn main() {
 
     let app = Router::new()
         .route("/ping", get(ping))
-        // .route("/", get(home))
+        //
         .route("/dags", get(get_dags))
+        //
         .route("/options/:dag_name", get(get_options))
+        .route("/runs/:dag_name", get(get_runs))
+        .route("/trigger/:dag_name", get(trigger))
+        //
         .route("/tasks/:dag_name/:run_id", get(get_run_tasks))
         .route("/default_tasks/:dag_name", get(get_default_tasks))
-        .route("/runs/:dag_name", get(get_runs))
+        //
         .route("/graph/:dag_name/:run_id", get(get_run_graph))
         .route("/default_graph/:dag_name", get(get_default_graph))
-        // .route("/edges/:dag_name", get(get_edges))
-        .route("/trigger/:dag_name", get(trigger))
         .layer(
             CorsLayer::new()
                 .allow_methods([Method::GET, Method::POST])
