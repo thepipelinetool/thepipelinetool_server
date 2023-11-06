@@ -6,8 +6,8 @@ use runner::{local::LocalRunner, DefRunner, Runner};
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
 use server::{
-    _get_dags, _get_edges, _get_options, _get_tasks, _trigger_run, catchup::catchup, db::Db,
-    scheduler::scheduler,
+    _get_dags, _get_edges, _get_options, _get_run_tasks, _get_tasks, _trigger_run,
+    catchup::catchup, db::Db, scheduler::scheduler,
 };
 use task::task::Task;
 // use task::task::Task;
@@ -23,6 +23,25 @@ async fn get_runs(Path(dag_name): Path<String>) -> Json<Value> {
     json!(Db::get_runs(&dag_name).await).into()
 }
 
+async fn get_runs_with_tasks(Path(dag_name): Path<String>) -> Json<Value> {
+    let mut res = json!({});
+
+    for run_id in Db::get_runs(&dag_name).await.iter() {
+        let mut tasks = json!({});
+        for task in _get_run_tasks(&dag_name, *run_id) {
+            tasks[format!("{}_{}", task.function_name, task.id)] = json!(task);
+        }
+        res[run_id.to_string()] = tasks;
+    }
+    res.into()
+    // json!(Db::get_runs(&dag_name)
+    //     .await
+    //     .iter()
+    //     .map(|run_id| _get_run_tasks(&dag_name, *run_id))
+    //     .collect::())
+    // .into()
+}
+
 // async fn get_options(Path(dag_name): Path<String>) -> Json<Value> {
 //     _get_options(&dag_name).into()
 // }
@@ -32,8 +51,7 @@ async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
 }
 
 async fn get_run_tasks(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<Value> {
-    let runner = Db::new(&dag_name, &[], &HashSet::new());
-    json!(runner.get_all_tasks(&run_id)).into()
+    json!(_get_run_tasks(&dag_name, run_id)).into()
 }
 
 async fn get_dags() -> Json<Value> {
@@ -85,6 +103,7 @@ async fn main() {
         //
         // .route("/options/:dag_name", get(get_options))
         .route("/runs/:dag_name", get(get_runs))
+        .route("/runs_with_tasks/:dag_name", get(get_runs_with_tasks))
         .route("/trigger/:dag_name", get(trigger))
         //
         .route("/tasks/:dag_name/:run_id", get(get_run_tasks))

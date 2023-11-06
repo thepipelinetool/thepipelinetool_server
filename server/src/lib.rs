@@ -22,6 +22,11 @@ pub fn _get_tasks(dag_name: &str) -> Value {
     serde_json::from_str(result_raw.as_ref()).unwrap()
 }
 
+pub fn _get_run_tasks(dag_name: &str, run_id: usize) -> Vec<Task> {
+    let runner = Db::new(&dag_name, &[], &HashSet::new());
+    runner.get_all_tasks(&run_id)
+}
+
 pub fn _get_edges(dag_name: &str) -> Value {
     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
         .arg("edges")
