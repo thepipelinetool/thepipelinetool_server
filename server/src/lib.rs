@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use db::Db;
 use runner::{local::hash_dag, Runner, DefRunner};
 use serde_json::Value;
-use task::task::Task;
+use task::{task::Task, task_status::TaskStatus};
 
 pub mod db;
 pub mod catchup;
@@ -25,6 +25,11 @@ pub fn _get_tasks(dag_name: &str) -> Value {
 pub fn _get_run_tasks(dag_name: &str, run_id: usize) -> Vec<Task> {
     let runner = Db::new(&dag_name, &[], &HashSet::new());
     runner.get_all_tasks(&run_id)
+}
+
+pub fn _get_task_status(dag_name: &str, run_id: usize, task_id: usize) -> TaskStatus {
+    let runner = Db::new(&dag_name, &[], &HashSet::new());
+    runner.get_task_status(&run_id, &task_id)
 }
 
 pub fn _get_edges(dag_name: &str) -> Value {
