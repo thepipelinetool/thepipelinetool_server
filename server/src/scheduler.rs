@@ -11,7 +11,7 @@ use task::task::Task;
 use thepipelinetool::prelude::DagOptions;
 use tokio::time::sleep;
 
-use crate::{_get_dags, _get_edges, _get_options, _get_tasks, _trigger_run, db::Db};
+use crate::{_get_dags, _get_default_edges, _get_options, _get_default_tasks, _trigger_run, db::Db};
 
 pub fn scheduler(up_to: &DateTime<Utc>) {
     let up_to_initial = up_to.clone();
@@ -59,9 +59,9 @@ pub fn scheduler(up_to: &DateTime<Utc>) {
 
                                 let futures = cron.clone().iter_from(up_to);
                                 let nodes: Vec<Task> =
-                                    serde_json::from_value(_get_tasks(&dag_name)).unwrap();
+                                    serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
                                 let edges: HashSet<(usize, usize)> =
-                                    serde_json::from_value(_get_edges(&dag_name)).unwrap();
+                                    serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
 
                                 let hash = hash_dag(
                                     &serde_json::to_string(&nodes).unwrap(),

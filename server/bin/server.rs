@@ -9,8 +9,8 @@ use runner::{
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
 use server::{
-    _get_dags, _get_edges, _get_options, _get_run_tasks, _get_task_status, _get_tasks,
-    _trigger_run, catchup::catchup, db::Db, scheduler::scheduler,
+    _get_all_tasks, _get_dags, _get_default_edges, _get_default_tasks, _get_options, _get_task,
+    _get_task_status, _trigger_run, catchup::catchup, db::Db, scheduler::scheduler, _get_task_result,
 };
 use task::task::Task;
 // use task::task::Task;
@@ -26,12 +26,13 @@ async fn get_runs(Path(dag_name): Path<String>) -> Json<Value> {
     json!(Db::get_runs(&dag_name).await).into()
 }
 
+// TODO return only statuses?
 async fn get_runs_with_tasks(Path(dag_name): Path<String>) -> Json<Value> {
     let mut res = json!({});
 
     for run_id in Db::get_runs(&dag_name).await.iter() {
         let mut tasks = json!({});
-        for task in _get_run_tasks(&dag_name, *run_id) {
+        for task in _get_all_tasks(&dag_name, *run_id) {
             tasks[format!("{}_{}", task.function_name, task.id)] = json!(task);
         }
         res[run_id.to_string()] = tasks;
@@ -50,11 +51,15 @@ async fn get_runs_with_tasks(Path(dag_name): Path<String>) -> Json<Value> {
 // }
 
 async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
-    _get_tasks(&dag_name).into()
+    _get_default_tasks(&dag_name).into()
 }
 
-async fn get_run_tasks(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<Value> {
-    json!(_get_run_tasks(&dag_name, run_id)).into()
+async fn get_all_tasks(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<Value> {
+    json!(_get_all_tasks(&dag_name, run_id)).into()
+}
+
+async fn get_task(Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>) -> Json<Value> {
+    json!(_get_task(&dag_name, run_id, task_id)).into()
 }
 
 async fn get_task_status(
@@ -64,6 +69,12 @@ async fn get_task_status(
             "status": _get_task_status(&dag_name, run_id, task_id).as_str()
     })
     .into()
+}
+
+async fn get_task_result(
+    Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
+) -> Json<Value> {
+    json!(_get_task_result(&dag_name, run_id, task_id)).into()
 }
 
 async fn get_dags() -> Json<Value> {
@@ -86,8 +97,9 @@ async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<
 }
 
 async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
-    let nodes: Vec<Task> = serde_json::from_value(_get_tasks(&dag_name)).unwrap();
-    let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_edges(&dag_name)).unwrap();
+    let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
+    let edges: HashSet<(usize, usize)> =
+        serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
     let mut runner = LocalRunner::new("", &nodes, &edges);
     runner.enqueue_run("local", "", Utc::now().into());
     let graph = runner.get_graphite_graph(&0);
@@ -100,8 +112,9 @@ async fn trigger(Path(dag_name): Path<String>) {
 }
 
 fn _trigger_local_run(Path(dag_name): Path<String>) {
-    let nodes: Vec<Task> = serde_json::from_value(_get_tasks(&dag_name)).unwrap();
-    let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_edges(&dag_name)).unwrap();
+    let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
+    let edges: HashSet<(usize, usize)> =
+        serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
     let mut runner = Db::new(&dag_name, &nodes, &edges);
     let dag_run_id = runner.enqueue_run(
         &dag_name,
@@ -137,7 +150,12 @@ async fn main() {
             "/task_status/:dag_name/:run_id/:task_id",
             get(get_task_status),
         )
-        .route("/tasks/:dag_name/:run_id", get(get_run_tasks))
+        .route(
+            "/task_result/:dag_name/:run_id/:task_id",
+            get(get_task_result),
+        )
+        .route("/tasks/:dag_name/:run_id", get(get_all_tasks))
+        .route("/task/:dag_name/:run_id/:task_id", get(get_task))
         .route("/default_tasks/:dag_name", get(get_default_tasks))
         //
         .route("/graph/:dag_name/:run_id", get(get_run_graph))

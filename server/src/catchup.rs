@@ -6,7 +6,7 @@ use saffron::Cron;
 use task::task::Task;
 use thepipelinetool::prelude::DagOptions;
 
-use crate::{_get_dags, _get_edges, _get_options, _get_tasks, _trigger_run, db::Db};
+use crate::{_get_dags, _get_default_edges, _get_options, _get_default_tasks, _trigger_run, db::Db};
 
 pub fn catchup(up_to: &DateTime<Utc>) {
     let up_to: DateTime<Utc> = up_to.clone();
@@ -44,9 +44,9 @@ pub fn catchup(up_to: &DateTime<Utc>) {
                                 },
                             );
                             let nodes: Vec<Task> =
-                                serde_json::from_value(_get_tasks(&dag_name)).unwrap();
+                                serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
                             let edges: HashSet<(usize, usize)> =
-                                serde_json::from_value(_get_edges(&dag_name)).unwrap();
+                                serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
 
                             let hash = hash_dag(
                                 &serde_json::to_string(&nodes).unwrap(),

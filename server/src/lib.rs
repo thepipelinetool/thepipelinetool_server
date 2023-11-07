@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use db::Db;
 use runner::{local::hash_dag, Runner, DefRunner};
 use serde_json::Value;
-use task::{task::Task, task_status::TaskStatus};
+use task::{task::Task, task_status::TaskStatus, task_result::TaskResult};
 
 pub mod db;
 pub mod catchup;
@@ -12,7 +12,7 @@ pub mod scheduler;
 
 pub const DAGS_DIR: &str = "./bin";
 
-pub fn _get_tasks(dag_name: &str) -> Value {
+pub fn _get_default_tasks(dag_name: &str) -> Value {
     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
         .arg("tasks")
         .output()
@@ -22,9 +22,14 @@ pub fn _get_tasks(dag_name: &str) -> Value {
     serde_json::from_str(result_raw.as_ref()).unwrap()
 }
 
-pub fn _get_run_tasks(dag_name: &str, run_id: usize) -> Vec<Task> {
+pub fn _get_all_tasks(dag_name: &str, run_id: usize) -> Vec<Task> {
     let runner = Db::new(&dag_name, &[], &HashSet::new());
     runner.get_all_tasks(&run_id)
+}
+
+pub fn _get_task(dag_name: &str, run_id: usize, task_id: usize) -> Task {
+    let runner = Db::new(&dag_name, &[], &HashSet::new());
+    runner.get_task_by_id(&run_id, &task_id)
 }
 
 pub fn _get_task_status(dag_name: &str, run_id: usize, task_id: usize) -> TaskStatus {
@@ -32,7 +37,12 @@ pub fn _get_task_status(dag_name: &str, run_id: usize, task_id: usize) -> TaskSt
     runner.get_task_status(&run_id, &task_id)
 }
 
-pub fn _get_edges(dag_name: &str) -> Value {
+pub fn _get_task_result(dag_name: &str, run_id: usize, task_id: usize) -> TaskResult {
+    let mut runner = Db::new(&dag_name, &[], &HashSet::new());
+    runner.get_task_result(&run_id, &task_id)
+}
+
+pub fn _get_default_edges(dag_name: &str) -> Value {
     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
         .arg("edges")
         .output()
@@ -80,8 +90,8 @@ pub fn _get_dags() -> Vec<String> {
 }
 
 pub fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>) {
-    let nodes: Vec<Task> = serde_json::from_value(_get_tasks(&dag_name)).unwrap();
-    let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_edges(&dag_name)).unwrap();
+    let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
+    let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
 
     let hash = hash_dag(
         &serde_json::to_string(&nodes).unwrap(),
