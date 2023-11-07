@@ -5,13 +5,15 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use runner::local::hash_dag;
+use thepipelinetool::prelude::*;
+
 use saffron::Cron;
-use task::task::Task;
 use thepipelinetool::prelude::DagOptions;
 use tokio::time::sleep;
 
-use crate::{_get_dags, _get_default_edges, _get_options, _get_default_tasks, _trigger_run, db::Db};
+use crate::{
+    _get_dags, _get_default_edges, _get_default_tasks, _get_options, _trigger_run, db::Db,
+};
 
 pub fn scheduler(up_to: &DateTime<Utc>) {
     let up_to_initial = up_to.clone();
@@ -34,7 +36,10 @@ pub fn scheduler(up_to: &DateTime<Utc>) {
                         .get(&dag_name)
                         .get_or_insert(&up_to_initial);
 
-                    last_checked.lock().unwrap().insert(dag_name.clone(), Utc::now());
+                    last_checked
+                        .lock()
+                        .unwrap()
+                        .insert(dag_name.clone(), Utc::now());
 
                     if let Some(schedule) = &options.schedule {
                         match schedule.parse::<Cron>() {
@@ -93,7 +98,6 @@ pub fn scheduler(up_to: &DateTime<Utc>) {
                             Err(err) => println!("{err}: {schedule}"),
                         }
                     }
-
                 });
             }
 

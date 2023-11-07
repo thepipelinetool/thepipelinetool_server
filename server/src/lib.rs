@@ -1,13 +1,12 @@
-use std::{process::Command, fs, io::ErrorKind, path::PathBuf, collections::HashSet};
+use std::{collections::HashSet, fs, io::ErrorKind, path::PathBuf, process::Command};
 
 use chrono::{DateTime, Utc};
 use db::Db;
-use runner::{local::hash_dag, Runner, DefRunner};
 use serde_json::Value;
-use task::{task::Task, task_status::TaskStatus, task_result::TaskResult};
+use thepipelinetool::prelude::*;
 
-pub mod db;
 pub mod catchup;
+pub mod db;
 pub mod scheduler;
 
 pub const DAGS_DIR: &str = "./bin";
@@ -91,7 +90,8 @@ pub fn _get_dags() -> Vec<String> {
 
 pub fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>) {
     let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
-    let edges: HashSet<(usize, usize)> = serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
+    let edges: HashSet<(usize, usize)> =
+        serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
 
     let hash = hash_dag(
         &serde_json::to_string(&nodes).unwrap(),

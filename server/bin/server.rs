@@ -2,19 +2,21 @@ use std::collections::HashSet;
 
 use axum::{extract::Path, http::Method, Json, Router};
 use chrono::Utc;
-use runner::{
-    local::{hash_dag, LocalRunner},
-    DefRunner, Runner,
-};
+// use runner::{
+//     local::{hash_dag, LocalRunner},
+//     DefRunner, Runner,
+// };
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
 use server::{
     _get_all_tasks, _get_dags, _get_default_edges, _get_default_tasks, _get_options, _get_task,
-    _get_task_status, _trigger_run, catchup::catchup, db::Db, scheduler::scheduler, _get_task_result,
+    _get_task_result, _get_task_status, _trigger_run, catchup::catchup, db::Db,
+    scheduler::scheduler,
 };
-use task::task::Task;
+use thepipelinetool::prelude::*;
 // use task::task::Task;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::trace::TraceLayer;
 
 use axum::routing::get;
 
@@ -108,7 +110,9 @@ async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
 }
 
 async fn trigger(Path(dag_name): Path<String>) {
-    _trigger_run(&dag_name, Utc::now().into());
+    tokio::spawn(async move {
+        _trigger_run(&dag_name, Utc::now().into());
+    });
 }
 
 fn _trigger_local_run(Path(dag_name): Path<String>) {
@@ -129,6 +133,10 @@ fn _trigger_local_run(Path(dag_name): Path<String>) {
 
 #[tokio::main]
 async fn main() {
+    std::env::set_var("RUST_LOG", "sqlx=info");
+    // initialize the logger in the environment? not really sure.
+    env_logger::init();
+
     Db::init_tables().await;
 
     let now = Utc::now();
@@ -164,7 +172,8 @@ async fn main() {
             CorsLayer::new()
                 .allow_methods([Method::GET, Method::POST])
                 .allow_origin(Any),
-        );
+        )
+        .layer(TraceLayer::new_for_http());
 
     axum::Server::bind(&"0.0.0.0:8000".parse().unwrap())
         .serve(app.into_make_service())

@@ -1,12 +1,14 @@
 use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
-use runner::local::hash_dag;
+// use runner::local::hash_dag;
 use saffron::Cron;
-use task::task::Task;
-use thepipelinetool::prelude::DagOptions;
+// use task::task::Task;
+use thepipelinetool::prelude::*;
 
-use crate::{_get_dags, _get_default_edges, _get_options, _get_default_tasks, _trigger_run, db::Db};
+use crate::{
+    _get_dags, _get_default_edges, _get_default_tasks, _get_options, _trigger_run, db::Db,
+};
 
 pub fn catchup(up_to: &DateTime<Utc>) {
     let up_to: DateTime<Utc> = up_to.clone();

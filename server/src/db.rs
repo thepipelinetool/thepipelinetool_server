@@ -1,11 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use std::env;
+use std::str::FromStr;
+use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use runner::Runner;
+use thepipelinetool::prelude::*;
 // use runner::Runner;
 // use rocket::tokio;
 // use backend::BackendTrait;
+use log::LevelFilter;
 use serde_json::Value;
 
 // use task::task_options::TaskOptions;
@@ -24,17 +27,17 @@ pub struct Db {
 //     }
 // }
 
-use sqlx::{Pool, Postgres, Row};
+use sqlx::{ConnectOptions, Pool, Postgres, Row};
 
-use sqlx::postgres::PgPoolOptions;
-use task::task::Task;
-use task::task_options::TaskOptions;
-use task::task_result::TaskResult;
-use task::task_status::TaskStatus;
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
+// use task::task::Task;
+// use task::task_options::TaskOptions;
+// use task::task_result::TaskResult;
+// use task::task_status::TaskStatus;
 // use thepipelinetool::prelude::*;
 
 fn get_db_url() -> String {
-   env::var("POSTGRES_URL")
+    env::var("POSTGRES_URL")
         .unwrap_or("postgres://postgres:example@0.0.0.0:5432".to_string())
         .to_string()
 }
@@ -79,8 +82,9 @@ impl Db {
                 let client = Db::get_client().await;
 
                 // TODO get only incomplete
-                let rows = sqlx::query("SELECT run_id, dag_id FROM runs WHERE dag_name = $1")
+                let rows = sqlx::query("SELECT run_id, dag_id FROM runs WHERE dag_name = $1 AND status = $2")
                     .bind(dag_name)
+                    .bind("Pending")
                     .fetch_all(&client)
                     .await
                     .unwrap();
@@ -123,6 +127,7 @@ impl Db {
                 dag_name    TEXT,
                 timestamp timestamptz not null default NOW(),
                 logical_date timestamptz not null,
+                status TEXT NOT NULL DEFAULT 'Pending',
                 PRIMARY KEY (run_id, dag_id)
             );
             ",
@@ -218,10 +223,13 @@ impl Db {
     }
 
     async fn get_client() -> Pool<Postgres> {
-        PgPoolOptions::new()
-            .connect(&get_db_url())
-            .await
+
+        let options = PgConnectOptions::from_str(&get_db_url())
             .unwrap()
+            // .log_statements(LevelFilter::Debug);
+            .log_slow_statements(LevelFilter::Debug, Duration::new(0, 500_000_000).clone());
+
+        PgPoolOptions::new().connect_with(options).await.unwrap()
 
         // PgPoolOptions::new()
         //     .connect("postgres://postgres:example@localhost:5432")
@@ -376,7 +384,11 @@ impl Db {
         // client
     }
 
-    pub fn contains_logical_date(dag_name: &str, dag_hash: &str, logical_date: DateTime<Utc>) -> bool {
+    pub fn contains_logical_date(
+        dag_name: &str,
+        dag_hash: &str,
+        logical_date: DateTime<Utc>,
+    ) -> bool {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 let client = Db::get_client().await;
@@ -732,8 +744,23 @@ impl Runner for Db {
         });
     }
 
-    fn mark_finished(&self, _dag_run_id: &usize) {
-        // todo!()
+    fn mark_finished(&self, dag_run_id: &usize) {
+        dbg!("mark finished!");
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let client = Db::get_client().await;
+
+                sqlx::query(
+                    "UPDATE runs SET status = $2 WHERE run_id = $1",
+                )
+                .bind(*dag_run_id as i32)
+                .bind("Completed")
+                // .bind(v)
+                .execute(&client)
+                .await
+                .unwrap();
+            })
+        });
     }
 
     fn any_upstream_incomplete(&self, dag_run_id: &usize, task_id: &usize) -> bool {
