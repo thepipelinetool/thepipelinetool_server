@@ -13,7 +13,7 @@ use tokio::time::sleep;
 
 #[tokio::main]
 async fn main() {
-    std::env::set_var("RUST_LOG", "sqlx=debug");
+    std::env::set_var("RUST_LOG", "debug");
     // initialize the logger in the environment? not really sure.
     env_logger::init();
 

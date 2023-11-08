@@ -4,6 +4,8 @@ use chrono::{DateTime, Utc};
 use db::Db;
 use serde_json::Value;
 use thepipelinetool::prelude::*;
+use timed::timed;
+use log::debug;
 
 pub mod catchup;
 pub mod db;
@@ -11,6 +13,7 @@ pub mod scheduler;
 
 pub const DAGS_DIR: &str = "./bin";
 
+#[timed(duration(printer = "debug!"))]
 pub fn _get_default_tasks(dag_name: &str) -> Value {
     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
         .arg("tasks")
@@ -21,26 +24,31 @@ pub fn _get_default_tasks(dag_name: &str) -> Value {
     serde_json::from_str(result_raw.as_ref()).unwrap()
 }
 
+#[timed(duration(printer = "debug!"))]
 pub fn _get_all_tasks(dag_name: &str, run_id: usize) -> Vec<Task> {
     let runner = Db::new(&dag_name, &[], &HashSet::new());
     runner.get_all_tasks(&run_id)
 }
 
+#[timed(duration(printer = "debug!"))]
 pub fn _get_task(dag_name: &str, run_id: usize, task_id: usize) -> Task {
     let runner = Db::new(&dag_name, &[], &HashSet::new());
     runner.get_task_by_id(&run_id, &task_id)
 }
 
+#[timed(duration(printer = "debug!"))]
 pub fn _get_task_status(dag_name: &str, run_id: usize, task_id: usize) -> TaskStatus {
     let runner = Db::new(&dag_name, &[], &HashSet::new());
     runner.get_task_status(&run_id, &task_id)
 }
 
+#[timed(duration(printer = "debug!"))]
 pub fn _get_task_result(dag_name: &str, run_id: usize, task_id: usize) -> TaskResult {
-    let mut runner = Db::new(&dag_name, &[], &HashSet::new());
+    let runner = Db::new(&dag_name, &[], &HashSet::new());
     runner.get_task_result(&run_id, &task_id)
 }
 
+#[timed(duration(printer = "debug!"))]
 pub fn _get_default_edges(dag_name: &str) -> Value {
     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
         .arg("edges")
@@ -51,6 +59,7 @@ pub fn _get_default_edges(dag_name: &str) -> Value {
     serde_json::from_str(result_raw.as_ref()).unwrap()
 }
 
+#[timed(duration(printer = "debug!"))]
 pub fn _get_options(dag_name: &str) -> Value {
     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
         .arg("options")
@@ -61,6 +70,7 @@ pub fn _get_options(dag_name: &str) -> Value {
     serde_json::from_str(result_raw.as_ref()).unwrap()
 }
 
+#[timed(duration(printer = "debug!"))]
 pub fn _get_dags() -> Vec<String> {
     let paths: Vec<PathBuf> = match fs::read_dir(DAGS_DIR) {
         Err(e) if e.kind() == ErrorKind::NotFound => Vec::new(),
@@ -88,6 +98,7 @@ pub fn _get_dags() -> Vec<String> {
         .collect()
 }
 
+#[timed(duration(printer = "debug!"))]
 pub fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>) {
     let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
     let edges: HashSet<(usize, usize)> =

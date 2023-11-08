@@ -3,6 +3,8 @@ use std::collections::HashSet;
 use axum::{extract::Path, http::Method, Json, Router};
 use chrono::Utc;
 use redis::Commands;
+use log::debug;
+
 // use runner::{
 //     local::{hash_dag, LocalRunner},
 //     DefRunner, Runner,
@@ -20,11 +22,16 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use axum::routing::get;
+use timed::timed;
 
+// #[macro_use] extern crate log;
+
+#[timed(duration(printer = "debug!"))]
 async fn ping() -> &'static str {
     "pong"
 }
 
+#[timed(duration(printer = "debug!"))]
 async fn get_runs(Path(dag_name): Path<String>) -> Json<Value> {
     json!(Db::get_runs(&dag_name).await).into()
 }
@@ -134,7 +141,7 @@ fn _trigger_local_run(Path(dag_name): Path<String>) {
 
 #[tokio::main]
 async fn main() {
-    std::env::set_var("RUST_LOG", "sqlx=debug");
+    std::env::set_var("RUST_LOG", "debug");
     // initialize the logger in the environment? not really sure.
     env_logger::init();
 
