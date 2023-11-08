@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use axum::{extract::Path, http::Method, Json, Router};
 use chrono::Utc;
+use redis::Commands;
 // use runner::{
 //     local::{hash_dag, LocalRunner},
 //     DefRunner, Runner,
@@ -133,7 +134,7 @@ fn _trigger_local_run(Path(dag_name): Path<String>) {
 
 #[tokio::main]
 async fn main() {
-    std::env::set_var("RUST_LOG", "sqlx=info");
+    std::env::set_var("RUST_LOG", "sqlx=debug");
     // initialize the logger in the environment? not really sure.
     env_logger::init();
 
