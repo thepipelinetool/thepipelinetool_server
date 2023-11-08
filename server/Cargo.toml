@@ -9,15 +9,18 @@ edition = "2021"
 axum = "0.6.20"
 tokio = { version = "1.33.0", features = ["full"] }
 serde_json = "1.0"
-thepipelinetool = { path = "/home/ari/Documents/thepipelinetool/thepipelinetool" }
-#runner = { path = "../../thepipelinetool/runner" }
-    #git = "https://github.com/thepipelinetool/thepipelinetool.git"
+#serde = { version = "1.0.152", features = ["derive"] }
 
+thepipelinetool = { path = "../../thepipelinetool/thepipelinetool" }
+#runner = { path = "../../thepipelinetool/runner" }
+#git = "https://github.com/thepipelinetool/thepipelinetool.git"
 #task = { git = "https://github.com/thepipelinetool/thepipelinetool.git" }
 #utils = { git = "https://github.com/thepipelinetool/thepipelinetool.git" }
 sqlx = { version = "0.7", default-features = false, features = [ "runtime-tokio", "postgres", "json", "chrono" ] }
 log = "0.4.20"
 env_logger = "0.10.0"
+redis = { version = "0.23.3", features = ["json"] }
+#redis-macros = "0.1.0"
 
 # server deps
 tower-http = { version = "0.4.4", features = [ "cors", "trace" ] }
