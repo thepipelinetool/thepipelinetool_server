@@ -424,85 +424,88 @@ impl Runner for Db {
         // let mut completed = false;
         // tokio::task::block_in_place(|| {
         //     tokio::runtime::Handle::current().block_on(async {
-                // let client = Db::get_client().await;
+        // let client = Db::get_client().await;
 
-                // let result =
-                //     sqlx::query("SELECT success FROM task_results WHERE run_id = $1 AND task_id = $2 ORDER BY timestamp DESC LIMIT 1")
-                //         .bind(*dag_run_id as i32)
-                //         .bind(*task_id as i32)
-                //         .fetch_one(&client)
-                //         .await.unwrap();
+        // let result =
+        //     sqlx::query("SELECT success FROM task_results WHERE run_id = $1 AND task_id = $2 ORDER BY timestamp DESC LIMIT 1")
+        //         .bind(*dag_run_id as i32)
+        //         .bind(*task_id as i32)
+        //         .fetch_one(&client)
+        //         .await.unwrap();
 
-                //     let status: &str = result.get(0);
+        //     let status: &str = result.get(0);
 
-                //     if status == "Success" {
-                //         completed = true;
-                //         return;
-                //     }
-                //     let attempts = self.get_attempt_by_task_id(dag_run_id, task_id);
+        //     if status == "Success" {
+        //         completed = true;
+        //         return;
+        //     }
+        //     let attempts = self.get_attempt_by_task_id(dag_run_id, task_id);
 
-                // let task = self.get_task_by_id(dag_run_id, task_id);
+        // let task = self.get_task_by_id(dag_run_id, task_id);
 
-                // if attempts as isize > task.options.max_attempts {
-                //     completed = true;
-                //     return;
-                // }
-                if self.get_task_status(dag_run_id, task_id) == TaskStatus::Skipped {
-                    return true;
-                }
+        // if attempts as isize > task.options.max_attempts {
+        //     completed = true;
+        //     return;
+        // }
+        if self.get_task_status(dag_run_id, task_id) == TaskStatus::Skipped {
+            return true;
+        }
 
-                let mut redis = Db::get_redis_client();
-                if redis.exists(format!("task_result:{dag_run_id}:{task_id}")).unwrap() {
-                    return !self.get_task_result(dag_run_id, task_id).needs_retry();
-                } else {
-                    return false;
-                }
+        let mut redis = Db::get_redis_client();
+        if redis
+            .exists(format!("task_result:{dag_run_id}:{task_id}"))
+            .unwrap()
+        {
+            return !self.get_task_result(dag_run_id, task_id).needs_retry();
+        } else {
+            return false;
+        }
 
-                // let task = sqlx::query(
-                //     "
-                //     SELECT *
-                //     FROM task_results
-                //     WHERE run_id = $1 AND task_id = $2
-                //     ORDER BY timestamp DESC 
-                //     LIMIT 1;                    
-                //     ",
-                // )
-                // .bind(*dag_run_id as i32)
-                // .bind(*task_id as i32)
-                // .fetch_one(&client)
-                // .await;
+        // let task = sqlx::query(
+        //     "
+        //     SELECT *
+        //     FROM task_results
+        //     WHERE run_id = $1 AND task_id = $2
+        //     ORDER BY timestamp DESC
+        //     LIMIT 1;
+        //     ",
+        // )
+        // .bind(*dag_run_id as i32)
+        // .bind(*task_id as i32)
+        // .fetch_one(&client)
+        // .await;
 
-                // if let Ok(task) = task {
-                //     return !TaskResult {
-                //         task_id: task.get::<i32, _>("task_id") as usize,
-                //         result: serde_json::from_value(task.get("result")).unwrap(),
-                //         // task_name: task.get("task_name"),
-                //         attempt: task.get::<i32, _>("attempt") as usize,
-                //         max_attempts: task.get::<i32, _>("max_attempts") as isize,
-                //         function_name: task.get("function_name"),
-                //         success: task.get("success"),
-                //         stdout: task.get("stdout"),
-                //         stderr: task.get("stderr"),
-                //         template_args_str: task.get("template_args_str"),
-                //         resolved_args_str: task.get("resolved_args_str"),
-                //         started: task.get("started"),
-                //         ended: task.get("ended"),
-                //         elapsed: task.get::<i32, _>("elapsed") as i64,
-                //         premature_failure: task.get("premature_failure"),
-                //         premature_failure_error_str: task.get("premature_failure_error_str"),
-                //         is_branch: task.get("is_branch"),
-                //     }
-                //     .needs_retry();
-                // }
-                // false
-                // let id: i32 = task.get("task_id");
-                // let name: String = task.get("name");
-                // let function_name: String = task.get("function_name");
-                // let template_args: Value =
-                //     serde_json::from_value(task.get("template_args")).unwrap();
-                // let options: TaskOptions = serde_json::from_value(task.get("options")).unwrap();
-                // let lazy_expand: bool = task.get("lazy_expand");
-                // let is_dynamic: bool = task.get("is_dynamic");
+        // if let Ok(task) = task {
+        //     return !TaskResult {
+        //         task_id: task.get::<i32, _>("task_id") as usize,
+        //         result: serde_json::from_value(task.get("result")).unwrap(),
+        //         // task_name: task.get("task_name"),
+        //         attempt: task.get::<i32, _>("attempt") as usize,
+        //         max_attempts: task.get::<i32, _>("max_attempts") as isize,
+        //         function_name: task.get("function_name"),
+        //         success: task.get("success"),
+        //         stdout: task.get("stdout"),
+        //         stderr: task.get("stderr"),
+        //         template_args_str: task.get("template_args_str"),
+        //         resolved_args_str: task.get("resolved_args_str"),
+        //         started: task.get("started"),
+        //         ended: task.get("ended"),
+        //         elapsed: task.get::<i32, _>("elapsed") as i64,
+        //         premature_failure: task.get("premature_failure"),
+        //         premature_failure_error_str: task.get("premature_failure_error_str"),
+        //         is_branch: task.get("is_branch"),
+        //     }
+        //     .needs_retry();
+        // }
+        // false
+        // let id: i32 = task.get("task_id");
+        // let name: String = task.get("name");
+        // let function_name: String = task.get("function_name");
+        // let template_args: Value =
+        //     serde_json::from_value(task.get("template_args")).unwrap();
+        // let options: TaskOptions = serde_json::from_value(task.get("options")).unwrap();
+        // let lazy_expand: bool = task.get("lazy_expand");
+        // let is_dynamic: bool = task.get("is_dynamic");
         //     })
         // })
         // completed
@@ -519,7 +522,7 @@ impl Runner for Db {
         } else {
             println!("cache missed - task_result:{dag_run_id}:{task_id}");
 
-            tokio::task::block_in_place(|| {
+            let res = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async {
                     let client = Db::get_client().await;
 
@@ -566,7 +569,16 @@ impl Runner for Db {
                     }
                     // serde_json::from_value(v).unwrap()
                 })
-            })
+            });
+
+            let _: () = redis
+                .set(
+                    format!("task_result:{dag_run_id}:{task_id}"),
+                    serde_json::to_string(&res).unwrap(),
+                )
+                .unwrap();
+
+            res
         }
     }
 
@@ -630,6 +642,10 @@ impl Runner for Db {
                         }
                     })
                 });
+                let _: () = redis
+                    .set(format!("task_status:{dag_run_id}:{task_id}"), &status)
+                    .unwrap();
+
                 status.to_string()
             })
         };
@@ -1144,10 +1160,7 @@ impl Runner for Db {
 
                 let mut redis = Db::get_redis_client();
                 let _: () = redis
-                    .set(
-                        format!("task_status:{dag_run_id}:{task_id}"),
-                        "Running",
-                    )
+                    .set(format!("task_status:{dag_run_id}:{task_id}"), "Running")
                     .unwrap();
 
                 // Update the task status to "Running" if its last status is "Pending" or "Retrying"
