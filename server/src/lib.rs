@@ -5,7 +5,7 @@ use db::Db;
 use serde_json::Value;
 use thepipelinetool::prelude::*;
 use timed::timed;
-use log::debug;
+use log::{info,debug};
 
 pub mod catchup;
 pub mod db;
@@ -59,7 +59,7 @@ pub fn _get_default_edges(dag_name: &str) -> Value {
     serde_json::from_str(result_raw.as_ref()).unwrap()
 }
 
-#[timed(duration(printer = "debug!"))]
+// #[timed(duration(printer = "debug!"))]
 pub fn _get_options(dag_name: &str) -> Value {
     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
         .arg("options")
@@ -70,7 +70,7 @@ pub fn _get_options(dag_name: &str) -> Value {
     serde_json::from_str(result_raw.as_ref()).unwrap()
 }
 
-#[timed(duration(printer = "debug!"))]
+// #[timed(duration(printer = "debug!"))]
 pub fn _get_dags() -> Vec<String> {
     let paths: Vec<PathBuf> = match fs::read_dir(DAGS_DIR) {
         Err(e) if e.kind() == ErrorKind::NotFound => Vec::new(),

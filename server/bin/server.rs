@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use axum::{extract::Path, http::Method, Json, Router};
 use chrono::Utc;
 use redis::Commands;
-use log::debug;
+use log::{info,debug};
 
 // use runner::{
 //     local::{hash_dag, LocalRunner},
@@ -37,6 +37,7 @@ async fn get_runs(Path(dag_name): Path<String>) -> Json<Value> {
 }
 
 // TODO return only statuses?
+#[timed(duration(printer = "debug!"))]
 async fn get_runs_with_tasks(Path(dag_name): Path<String>) -> Json<Value> {
     let mut res = json!({});
 
@@ -60,18 +61,22 @@ async fn get_runs_with_tasks(Path(dag_name): Path<String>) -> Json<Value> {
 //     _get_options(&dag_name).into()
 // }
 
+#[timed(duration(printer = "debug!"))]
 async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
     _get_default_tasks(&dag_name).into()
 }
 
+#[timed(duration(printer = "debug!"))]
 async fn get_all_tasks(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<Value> {
     json!(_get_all_tasks(&dag_name, run_id)).into()
 }
 
+#[timed(duration(printer = "debug!"))]
 async fn get_task(Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>) -> Json<Value> {
     json!(_get_task(&dag_name, run_id, task_id)).into()
 }
 
+#[timed(duration(printer = "debug!"))]
 async fn get_task_status(
     Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
 ) -> Json<Value> {
@@ -81,12 +86,14 @@ async fn get_task_status(
     .into()
 }
 
+#[timed(duration(printer = "debug!"))]
 async fn get_task_result(
     Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
 ) -> Json<Value> {
     json!(_get_task_result(&dag_name, run_id, task_id)).into()
 }
 
+#[timed(duration(printer = "debug!"))]
 async fn get_dags() -> Json<Value> {
     let mut res: Vec<Value> = vec![];
 
@@ -100,12 +107,14 @@ async fn get_dags() -> Json<Value> {
     json!(res).into()
 }
 
+#[timed(duration(printer = "debug!"))]
 async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<Value> {
     let runner = Db::new(&dag_name, &[], &HashSet::new());
     let graph = runner.get_graphite_graph(&run_id);
     json!(graph).into()
 }
 
+#[timed(duration(printer = "debug!"))]
 async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
     let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
     let edges: HashSet<(usize, usize)> =
@@ -117,12 +126,14 @@ async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
     json!(graph).into()
 }
 
+#[timed(duration(printer = "debug!"))]
 async fn trigger(Path(dag_name): Path<String>) {
     tokio::spawn(async move {
         _trigger_run(&dag_name, Utc::now().into());
     });
 }
 
+#[timed(duration(printer = "debug!"))]
 fn _trigger_local_run(Path(dag_name): Path<String>) {
     let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
     let edges: HashSet<(usize, usize)> =
@@ -141,7 +152,7 @@ fn _trigger_local_run(Path(dag_name): Path<String>) {
 
 #[tokio::main]
 async fn main() {
-    std::env::set_var("RUST_LOG", "debug");
+    std::env::set_var("RUST_LOG", "info");
     // initialize the logger in the environment? not really sure.
     env_logger::init();
 

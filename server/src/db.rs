@@ -1,4 +1,4 @@
-use log::debug;
+use log::{info,debug};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::str::FromStr;
@@ -243,17 +243,14 @@ impl Db {
 
     #[timed(duration(printer = "debug!"))]
     async fn get_client() -> Pool<Postgres> {
-        let options = PgConnectOptions::from_str(&get_db_url())
-            .unwrap()
-            // .log_statements(LevelFilter::Debug);
-            .log_slow_statements(LevelFilter::Debug, Duration::new(0, 500_000_000).clone());
-
-        PgPoolOptions::new().connect_with(options).await.unwrap()
-
-        // PgPoolOptions::new()
-        //     .connect("postgres://postgres:example@localhost:5432")
-        //     .await
+        // let options = PgConnectOptions::from_str(&get_db_url())
         //     .unwrap()
+        //     // .log_statements(LevelFilter::Debug);
+        //     .log_slow_statements(LevelFilter::Debug, Duration::new(0, 500_000_000).clone());
+
+        // PgPoolOptions::new().connect_with(options).await.unwrap()
+
+        PgPoolOptions::new().connect(&get_db_url()).await.unwrap()
 
         // sqlx::query(
         //     "
@@ -428,20 +425,28 @@ impl Db {
 
 impl Runner for Db {
     //
-    #[timed(duration(printer = "debug!"))]
+    // #[timed(duration(printer = "info!"))]
     fn is_task_completed(&self, dag_run_id: &usize, task_id: &usize) -> bool {
-        if self.get_task_status(dag_run_id, task_id) == TaskStatus::Skipped {
-            return true;
+        match self.get_task_status(dag_run_id, task_id) {
+            TaskStatus::Pending | TaskStatus::Running | TaskStatus::Retrying => false,
+            TaskStatus::Skipped | TaskStatus::Success => true,
+            TaskStatus::Failure => {
+                // let mut redis = Db::get_redis_client();
+                // if redis
+                //     .exists(format!("task_result:{dag_run_id}:{task_id}"))
+                //     .unwrap()
+                // {
+                !self.get_task_result(dag_run_id, task_id).needs_retry()
+                // }
+                // false
+            }
         }
 
-        let mut redis = Db::get_redis_client();
-        if redis
-            .exists(format!("task_result:{dag_run_id}:{task_id}"))
-            .unwrap()
-        {
-            return !self.get_task_result(dag_run_id, task_id).needs_retry();
-        }
-        false
+        // if self.get_task_status(dag_run_id, task_id) == TaskStatus::Skipped {
+        //     return true;
+        // }
+
+        // false
     }
 
     #[timed(duration(printer = "debug!"))]
@@ -451,10 +456,10 @@ impl Runner for Db {
             redis.get(format!("task_result:{dag_run_id}:{task_id}"));
 
         if result.is_ok() {
-            println!("hit cache - task_result:{dag_run_id}:{task_id}");
+            // println!("hit cache - task_result:{dag_run_id}:{task_id}");
             serde_json::from_str(&result.unwrap()).unwrap()
         } else {
-            println!("cache missed - task_result:{dag_run_id}:{task_id}");
+            // println!("cache missed - task_result:{dag_run_id}:{task_id}");
 
             let res = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async {
@@ -505,18 +510,18 @@ impl Runner for Db {
                 })
             });
 
-            let _: () = redis
+            let _: Option<()> = redis
                 .set(
                     format!("task_result:{dag_run_id}:{task_id}"),
                     serde_json::to_string(&res).unwrap(),
                 )
-                .unwrap();
+                .ok();
 
             res
         }
     }
 
-    #[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "info!"))]
     fn get_attempt_by_task_id(&self, dag_run_id: &usize, task_id: &usize) -> usize {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -546,12 +551,11 @@ impl Runner for Db {
         let result = redis.get(format!("task_status:{dag_run_id}:{task_id}"));
 
         let task_status = if result.is_ok() {
-            println!("hit cache - task_status:{dag_run_id}:{task_id}");
+            // println!("hit cache - task_status:{dag_run_id}:{task_id}");
             result.unwrap()
         } else {
-            println!("cache missed - task_status:{dag_run_id}:{task_id}");
+            // println!("cache missed - task_status:{dag_run_id}:{task_id}");
 
-            result.unwrap_or_else(|_| {
                 tokio::task::block_in_place(|| {
                     tokio::runtime::Handle::current().block_on(async {
                         let client = Db::get_client().await;
@@ -578,12 +582,11 @@ impl Runner for Db {
                         }
                     })
                 });
-                let _: () = redis
+            let _: Option<()> = redis
                     .set(format!("task_status:{dag_run_id}:{task_id}"), &status)
-                    .unwrap();
+                .ok();
 
                 status.to_string()
-            })
         };
 
         TaskStatus::from_str(&task_status).unwrap()
@@ -592,12 +595,12 @@ impl Runner for Db {
     #[timed(duration(printer = "debug!"))]
     fn set_task_status(&mut self, dag_run_id: &usize, task_id: &usize, task_status: TaskStatus) {
         let mut redis = Db::get_redis_client();
-        let _: () = redis
+        let _: Option<()> = redis
             .set(
                 format!("task_status:{dag_run_id}:{task_id}"),
                 task_status.as_str(),
             )
-            .unwrap();
+            .ok();
 
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -748,12 +751,12 @@ impl Runner for Db {
         });
 
         let mut redis = Db::get_redis_client();
-        let _: () = redis
+        let _: Option<()> = redis
             .set(
                 format!("task_result:{dag_run_id}:{}", result.task_id),
                 serde_json::to_string(result).unwrap(),
             )
-            .unwrap();
+            .ok();
     }
 
     #[timed(duration(printer = "debug!"))]
@@ -774,14 +777,14 @@ impl Runner for Db {
         });
     }
 
-    #[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "info!"))]
     fn any_upstream_incomplete(&self, dag_run_id: &usize, task_id: &usize) -> bool {
         self.get_upstream(dag_run_id, task_id)
             .iter()
             .any(|edge| !self.is_task_completed(dag_run_id, edge))
     }
 
-    #[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "info!"))]
     fn get_dependency_keys(
         &self,
         dag_run_id: &usize,
@@ -822,7 +825,7 @@ impl Runner for Db {
         results
     }
 
-    #[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "info!"))]
     fn get_downstream(&self, dag_run_id: &usize, task_id: &usize) -> HashSet<usize> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1107,16 +1110,16 @@ impl Runner for Db {
         self.edges.clone()
     }
 
-    #[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "info!"))]
     fn set_status_to_running_if_possible(&mut self, dag_run_id: &usize, task_id: &usize) -> bool {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 let client = Db::get_client().await;
 
                 let mut redis = Db::get_redis_client();
-                let _: () = redis
+                let _: Option<()> = redis
                     .set(format!("task_status:{dag_run_id}:{task_id}"), "Running")
-                    .unwrap();
+                    .ok();
 
                 // Update the task status to "Running" if its last status is "Pending" or "Retrying"
                 let rows_affected = sqlx::query(
