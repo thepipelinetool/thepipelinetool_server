@@ -42,8 +42,9 @@ async fn main() {
 
                 // dbg!(run_id, &dag_id, format!("{DAGS_DIR}/{dag_name}"));
 
+                // TODO read max_threads from env
                 if &dag_id == hash {
-                    Db::new(&dag_name, &nodes, &edges).run(&run_id, 4);
+                    Db::new(&dag_name, &nodes, &edges).run(&run_id, 9);
                 }
             }
         }
