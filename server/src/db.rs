@@ -427,22 +427,26 @@ impl Db {
 }
 
 impl Runner for Db {
-    //
-    #[timed(duration(printer = "debug!"))]
-    fn is_task_completed(&self, dag_run_id: &usize, task_id: &usize) -> bool {
-        if self.get_task_status(dag_run_id, task_id) == TaskStatus::Skipped {
-            return true;
-        }
+    // //
+    // #[timed(duration(printer = "debug!"))]
+    // fn is_task_completed(&self, dag_run_id: &usize, task_id: &usize) -> bool {
+    //     match  self.get_task_status(dag_run_id, task_id) {
+    //         TaskStatus::Pending | TaskStatus::Running | TaskStatus::Retrying => false,
+    //         TaskStatus::Success | TaskStatus::Failure | TaskStatus::Skipped => true,
+    //     }
+    //     // if self.get_task_status(dag_run_id, task_id) == TaskStatus::Skipped {
+    //     //     return true;
+    //     // }
 
-        let mut redis = Db::get_redis_client();
-        if redis
-            .exists(format!("task_result:{dag_run_id}:{task_id}"))
-            .unwrap()
-        {
-            return !self.get_task_result(dag_run_id, task_id).needs_retry();
-        }
-        false
-    }
+    //     // let mut redis = Db::get_redis_client();
+    //     // if redis
+    //     //     .exists(format!("task_result:{dag_run_id}:{task_id}"))
+    //     //     .unwrap()
+    //     // {
+    //     //     return !self.get_task_result(dag_run_id, task_id).needs_retry();
+    //     // }
+    //     // false
+    // }
 
     #[timed(duration(printer = "debug!"))]
     fn get_task_result(&self, dag_run_id: &usize, task_id: &usize) -> TaskResult {
@@ -1185,6 +1189,52 @@ impl Runner for Db {
                             is_branch,
                         }
                     })
+                    .collect()
+            })
+        })
+    }
+
+    #[timed(duration(printer = "debug!"))]
+    fn get_all_tasks_incomplete(&self, dag_run_id: &usize) -> Vec<Task> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let client = Db::get_client().await;
+
+                // TODO sort?
+                let tasks = sqlx::query("SELECT * FROM tasks WHERE run_id = $1")
+                    .bind(*dag_run_id as i32)
+                    .fetch_all(&client)
+                    .await
+                    .unwrap();
+
+                tasks
+                    .iter()
+                    // .filter(|t| t.get)
+                    .filter_map(|task| {
+                        let id: i32 = task.get("task_id");
+                        if self.is_task_completed(dag_run_id, &(id as usize)) {
+                            return None;
+                        }
+
+                        let function_name: String = task.get("function_name");
+                        let template_args: Value =
+                            serde_json::from_value(task.get("template_args")).unwrap();
+                        let options: TaskOptions =
+                            serde_json::from_value(task.get("options")).unwrap();
+                        let lazy_expand: bool = task.get("lazy_expand");
+                        let is_dynamic: bool = task.get("is_dynamic");
+                        let is_branch: bool = task.get("is_branch");
+                        Some(Task {
+                            id: id as usize,
+                            function_name,
+                            template_args,
+                            options,
+                            lazy_expand,
+                            is_dynamic,
+                            is_branch,
+                        })
+                    })
+                    // .filter(|t| )
                     .collect()
             })
         })
