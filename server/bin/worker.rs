@@ -1,13 +1,12 @@
 use std::{
     collections::{HashMap, HashSet},
-    hash::Hash,
     time::Duration,
 };
 
 // use thepipelinetool::prelude::*;
 
 // use runner::{local::hash_dag, DefRunner, Runner};
-use server::{_get_dags, _get_default_edges, _get_default_tasks, db::Db, get_client, get_redis_client};
+use server::{_get_dags, _get_default_edges, _get_default_tasks, db::Db, get_client};
 use thepipelinetool::prelude::*;
 use tokio::time::sleep;
 
@@ -21,7 +20,6 @@ async fn main() {
     let mut edges_hashmap: HashMap<String, HashSet<(usize, usize)>> = HashMap::new();
     let mut hash_hashmap: HashMap<String, String> = HashMap::new();
     let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
-    let redis = get_redis_client();
 
     loop {
         for dag_name in _get_dags() {

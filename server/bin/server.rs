@@ -4,7 +4,6 @@ use axum::extract::State;
 use axum::{extract::Path, http::Method, Json, Router};
 use chrono::Utc;
 use log::debug;
-use redis::{Commands, Connection};
 
 // use runner::{
 //     local::{hash_dag, LocalRunner},
@@ -12,12 +11,12 @@ use redis::{Commands, Connection};
 // };
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
+use server::get_client;
 use server::{
     _get_all_tasks, _get_dags, _get_default_edges, _get_default_tasks, _get_options, _get_task,
     _get_task_result, _get_task_status, _trigger_run, catchup::catchup, db::Db,
     scheduler::scheduler,
 };
-use server::{get_client, get_redis_client};
 use sqlx::PgPool;
 use thepipelinetool::prelude::*;
 // use task::task::Task;
@@ -43,7 +42,6 @@ async fn get_runs(Path(dag_name): Path<String>, State(pool): State<PgPool>) -> J
 async fn get_runs_with_tasks(
     Path(dag_name): Path<String>,
     State(pool): State<PgPool>,
-    
 ) -> Json<Value> {
     let mut res = json!({});
 
@@ -74,7 +72,6 @@ async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
 async fn get_all_tasks(
     Path((dag_name, run_id)): Path<(String, usize)>,
     State(pool): State<PgPool>,
-    
 ) -> Json<Value> {
     json!(_get_all_tasks(&dag_name, run_id, pool)).into()
 }
@@ -82,7 +79,6 @@ async fn get_all_tasks(
 async fn get_task(
     Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
     State(pool): State<PgPool>,
-    
 ) -> Json<Value> {
     json!(_get_task(&dag_name, run_id, task_id, pool)).into()
 }
@@ -90,7 +86,6 @@ async fn get_task(
 async fn get_task_status(
     Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
     State(pool): State<PgPool>,
-    
 ) -> Json<Value> {
     json!({
             "status": _get_task_status(&dag_name, run_id, task_id, pool).as_str()
@@ -101,7 +96,6 @@ async fn get_task_status(
 async fn get_task_result(
     Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
     State(pool): State<PgPool>,
-    
 ) -> Json<Value> {
     json!(_get_task_result(&dag_name, run_id, task_id, pool)).into()
 }
@@ -122,7 +116,6 @@ async fn get_dags() -> Json<Value> {
 async fn get_run_graph(
     Path((dag_name, run_id)): Path<(String, usize)>,
     State(pool): State<PgPool>,
-    
 ) -> Json<Value> {
     let mut runner = Db::new(&dag_name, &[], &HashSet::new(), pool);
     let graph = runner.get_graphite_graph(&run_id);
@@ -140,21 +133,13 @@ async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
     json!(graph).into()
 }
 
-async fn trigger(
-    Path(dag_name): Path<String>,
-    State(pool): State<PgPool>,
-    
-) {
+async fn trigger(Path(dag_name): Path<String>, State(pool): State<PgPool>) {
     tokio::spawn(async move {
         _trigger_run(&dag_name, Utc::now().into(), pool);
     });
 }
 
-fn _trigger_local_run(
-    Path(dag_name): Path<String>,
-    State(pool): State<PgPool>,
-    
-) {
+fn _trigger_local_run(Path(dag_name): Path<String>, State(pool): State<PgPool>) {
     let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
     let edges: HashSet<(usize, usize)> =
         serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
@@ -177,7 +162,6 @@ async fn main() {
     env_logger::init();
 
     let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
-    let redis = get_redis_client();
 
     Db::init_tables(pool.clone()).await;
 
@@ -217,7 +201,7 @@ async fn main() {
         )
         .layer(TraceLayer::new_for_http())
         .with_state(pool);
-        // .with_state(redis);
+    // .with_state(redis);
 
     axum::Server::bind(&"0.0.0.0:8000".parse().unwrap())
         .serve(app.into_make_service())

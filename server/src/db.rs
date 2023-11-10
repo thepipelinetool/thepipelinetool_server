@@ -1,17 +1,10 @@
 use log::debug;
 use std::collections::{HashMap, HashSet};
-use std::env;
-use std::str::FromStr;
-use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use redis::{Commands, Connection, JsonCommands, RedisResult};
-use thepipelinetool::prelude::*;
-// use runner::Runner;
-// use rocket::tokio;
-// use backend::BackendTrait;
-use log::LevelFilter;
+use redis::{Commands, Connection};
 use serde_json::Value;
+use thepipelinetool::prelude::*;
 
 // use task::task_options::TaskOptions;
 // use task::{task::Task, task_result::TaskResult, task_status::TaskStatus};
@@ -31,9 +24,8 @@ pub struct Db {
 //     }
 // }
 
-use sqlx::{ConnectOptions, Pool, Postgres, Row};
+use sqlx::{Pool, Postgres, Row};
 
-use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use timed::timed;
 
 use crate::get_redis_client;
@@ -42,7 +34,6 @@ use crate::get_redis_client;
 // use task::task_result::TaskResult;
 // use task::task_status::TaskStatus;
 // use thepipelinetool::prelude::*;
-
 
 impl Db {
     #[timed(duration(printer = "debug!"))]
@@ -292,8 +283,9 @@ impl Runner for Db {
     #[timed(duration(printer = "debug!"))]
     fn get_task_result(&mut self, dag_run_id: &usize, task_id: &usize) -> TaskResult {
         // let mut redis = Db::get_redis_client();
-        let result: Result<String, redis::RedisError> =
-            self.redis.get(format!("task_result:{dag_run_id}:{task_id}"));
+        let result: Result<String, redis::RedisError> = self
+            .redis
+            .get(format!("task_result:{dag_run_id}:{task_id}"));
 
         if result.is_ok() {
             println!("hit cache - task_result:{dag_run_id}:{task_id}");
@@ -348,7 +340,8 @@ impl Runner for Db {
                 })
             });
 
-            let _: () = self.redis
+            let _: () = self
+                .redis
                 .set(
                     format!("task_result:{dag_run_id}:{task_id}"),
                     serde_json::to_string(&res).unwrap(),
@@ -384,7 +377,9 @@ impl Runner for Db {
         let mut status = TaskStatus::Pending.as_str().to_string();
 
         // let mut redis = Db::get_redis_client();
-        let result = self.redis.get(format!("task_status:{dag_run_id}:{task_id}"));
+        let result = self
+            .redis
+            .get(format!("task_status:{dag_run_id}:{task_id}"));
 
         let task_status = if result.is_ok() {
             println!("hit cache - task_status:{dag_run_id}:{task_id}");
@@ -417,7 +412,8 @@ impl Runner for Db {
                         }
                     })
                 });
-                let _: () = self.redis
+                let _: () = self
+                    .redis
                     .set(format!("task_status:{dag_run_id}:{task_id}"), &status)
                     .unwrap();
 
@@ -431,7 +427,8 @@ impl Runner for Db {
     #[timed(duration(printer = "debug!"))]
     fn set_task_status(&mut self, dag_run_id: &usize, task_id: &usize, task_status: TaskStatus) {
         // let mut redis = Db::get_redis_client();
-        let _: () = self.redis
+        let _: () = self
+            .redis
             .set(
                 format!("task_status:{dag_run_id}:{task_id}"),
                 task_status.as_str(),
@@ -545,8 +542,6 @@ impl Runner for Db {
     fn insert_task_results(&mut self, dag_run_id: &usize, result: &TaskResult) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                
-
                 sqlx::query(
                     "
                     INSERT INTO task_results (
@@ -583,7 +578,8 @@ impl Runner for Db {
         });
 
         // let mut redis = Db::get_redis_client();
-        let _: () = self.redis
+        let _: () = self
+            .redis
             .set(
                 format!("task_result:{dag_run_id}:{}", result.task_id),
                 serde_json::to_string(result).unwrap(),
@@ -680,8 +676,6 @@ impl Runner for Db {
     fn remove_edge(&mut self, dag_run_id: &usize, edge: &(usize, usize)) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                
-
                 sqlx::query(
                     "
                         DELETE FROM edges 
@@ -766,8 +760,6 @@ impl Runner for Db {
     ) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                
-
                 sqlx::query(
                     "
                             INSERT INTO dep_keys (run_id, task_id, upstream_task_id, template_arg_key, upstream_result_key)
@@ -838,8 +830,6 @@ impl Runner for Db {
     ) -> usize {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                
-
                 let q: i32 = sqlx::query(
                     "
                         INSERT INTO tasks (run_id, task_id, function_name, template_args, options, lazy_expand, is_dynamic, is_branch)
@@ -923,7 +913,8 @@ impl Runner for Db {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 // let mut redis = Db::get_redis_client();
-                let _: () = self.redis
+                let _: () = self
+                    .redis
                     .set(format!("task_status:{dag_run_id}:{task_id}"), "Running")
                     .unwrap();
 

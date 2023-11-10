@@ -33,15 +33,13 @@ pub fn _get_default_tasks(dag_name: &str) -> Value {
 }
 
 #[timed(duration(printer = "debug!"))]
-pub fn _get_all_tasks(dag_name: &str, run_id: usize, pool: Pool<Postgres>,   
-) -> Vec<Task> {
+pub fn _get_all_tasks(dag_name: &str, run_id: usize, pool: Pool<Postgres>) -> Vec<Task> {
     let runner = Db::new(&dag_name, &[], &HashSet::new(), pool);
     runner.get_all_tasks(&run_id)
 }
 
 #[timed(duration(printer = "debug!"))]
-pub fn _get_task(dag_name: &str, run_id: usize, task_id: usize, pool: Pool<Postgres>,  
-) -> Task {
+pub fn _get_task(dag_name: &str, run_id: usize, task_id: usize, pool: Pool<Postgres>) -> Task {
     let runner = Db::new(&dag_name, &[], &HashSet::new(), pool);
     runner.get_task_by_id(&run_id, &task_id)
 }
@@ -53,7 +51,6 @@ pub fn _get_task_status(
     task_id: usize,
     pool: Pool<Postgres>,
     // redis: Connection
-
 ) -> TaskStatus {
     let mut runner = Db::new(&dag_name, &[], &HashSet::new(), pool);
     runner.get_task_status(&run_id, &task_id)
@@ -160,7 +157,6 @@ fn get_redis_url() -> String {
         .unwrap_or("redis://0.0.0.0:6379".to_string())
         .to_string()
 }
-
 
 #[timed(duration(printer = "debug!"))]
 pub fn get_redis_client() -> Connection {

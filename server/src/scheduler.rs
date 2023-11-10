@@ -5,7 +5,6 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use redis::Connection;
 use sqlx::{Pool, Postgres};
 use thepipelinetool::prelude::*;
 
@@ -14,7 +13,7 @@ use thepipelinetool::prelude::DagOptions;
 use tokio::time::sleep;
 
 use crate::{
-    _get_dags, _get_default_edges, _get_default_tasks, _get_options, _trigger_run, db::Db, get_redis_client,
+    _get_dags, _get_default_edges, _get_default_tasks, _get_options, _trigger_run, db::Db,
 };
 
 pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
@@ -100,7 +99,6 @@ pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
                                     ) {
                                         continue 'inner;
                                     }
-                                    let redis = get_redis_client();
 
                                     _trigger_run(&dag_name, time, pool.clone());
                                     println!("scheduling {} {dag_name}", time.format("%F %R"));
