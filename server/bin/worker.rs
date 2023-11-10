@@ -20,31 +20,47 @@ async fn main() {
     let mut edges_hashmap: HashMap<String, HashSet<(usize, usize)>> = HashMap::new();
     let mut hash_hashmap: HashMap<String, String> = HashMap::new();
     let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
+    let dags = &_get_dags();
 
+    for dag_name in dags {
+        // let all_runs = Db::get_all_runs(dag_name, pool.clone()).await;
+
+        // for (run_id, dag_id) in all_runs {
+        let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(dag_name)).unwrap();
+        let edges: HashSet<(usize, usize)> =
+            serde_json::from_value(_get_default_edges(dag_name)).unwrap();
+        // dbg!(run_id, &dag_id);
+
+        hash_hashmap.insert(
+            dag_name.clone(),
+            hash_dag(
+                &serde_json::to_string(&nodes).unwrap(),
+                &edges.iter().collect::<Vec<&(usize, usize)>>(),
+            ),
+        );
+
+        node_hashmap.insert(dag_name.clone(), nodes);
+        edges_hashmap.insert(dag_name.clone(), edges);
+        // }
+    }
     loop {
-        for dag_name in _get_dags() {
-            let all_runs = Db::get_all_runs(&dag_name, pool.clone()).await;
+        for dag_name in dags {
+            let all_runs = Db::get_all_runs(dag_name, pool.clone()).await;
 
             for (run_id, dag_id) in all_runs {
                 // dbg!(run_id, &dag_id);
-                let nodes: Vec<Task> = node_hashmap
-                    .entry(dag_name.clone())
-                    .or_insert(serde_json::from_value(_get_default_tasks(&dag_name)).unwrap())
-                    .to_vec();
-                let edges: &mut HashSet<(usize, usize)> = edges_hashmap
-                    .entry(dag_name.clone())
-                    .or_insert(serde_json::from_value(_get_default_edges(&dag_name)).unwrap());
+                let nodes = node_hashmap.get(dag_name).unwrap();
+                // .or_insert(serde_json::from_value(_get_default_tasks(&dag_name)).unwrap())
+                // .to_vec();
+                let edges: &HashSet<(usize, usize)> = edges_hashmap.get(dag_name).unwrap();
 
-                let hash = hash_hashmap.entry(dag_name.clone()).or_insert(hash_dag(
-                    &serde_json::to_string(&nodes).unwrap(),
-                    &edges.iter().collect::<Vec<&(usize, usize)>>(),
-                ));
+                let hash = hash_hashmap.get(dag_name).unwrap();
 
                 // dbg!(run_id, &dag_id, format!("{DAGS_DIR}/{dag_name}"));
 
                 // TODO read max_threads from env
                 if &dag_id == hash {
-                    Db::new(&dag_name, &nodes, edges, pool.clone()).run(&run_id, 9);
+                    Db::new(dag_name, nodes, edges, pool.clone()).run(&run_id, 9);
                 }
             }
         }
