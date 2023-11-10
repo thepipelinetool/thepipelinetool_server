@@ -7,7 +7,7 @@ use std::{
 // use thepipelinetool::prelude::*;
 
 // use runner::{local::hash_dag, DefRunner, Runner};
-use server::{_get_dags, _get_default_edges, _get_default_tasks, db::Db};
+use server::{_get_dags, _get_default_edges, _get_default_tasks, db::Db, get_client, get_redis_client};
 use thepipelinetool::prelude::*;
 use tokio::time::sleep;
 
@@ -20,10 +20,12 @@ async fn main() {
     let mut node_hashmap: HashMap<String, Vec<Task>> = HashMap::new();
     let mut edges_hashmap: HashMap<String, HashSet<(usize, usize)>> = HashMap::new();
     let mut hash_hashmap: HashMap<String, String> = HashMap::new();
+    let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
+    let redis = get_redis_client();
 
     loop {
         for dag_name in _get_dags() {
-            let all_runs = Db::get_all_runs(&dag_name).await;
+            let all_runs = Db::get_all_runs(&dag_name, pool.clone()).await;
 
             for (run_id, dag_id) in all_runs {
                 // dbg!(run_id, &dag_id);
@@ -44,7 +46,7 @@ async fn main() {
 
                 // TODO read max_threads from env
                 if &dag_id == hash {
-                    Db::new(&dag_name, &nodes, &edges).run(&run_id, 9);
+                    Db::new(&dag_name, &nodes, &edges, pool.clone()).run(&run_id, 9);
                 }
             }
         }

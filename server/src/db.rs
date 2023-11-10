@@ -16,11 +16,13 @@ use serde_json::Value;
 // use task::task_options::TaskOptions;
 // use task::{task::Task, task_result::TaskResult, task_status::TaskStatus};
 
-#[derive(Clone)]
+// #[derive(Clone)]
 pub struct Db {
     edges: HashSet<(usize, usize)>,
     nodes: Vec<Task>,
     name: String,
+    pool: Pool<Postgres>,
+    redis: Connection,
 }
 
 // impl Default for Postgres {
@@ -33,34 +35,43 @@ use sqlx::{ConnectOptions, Pool, Postgres, Row};
 
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use timed::timed;
+
+use crate::get_redis_client;
 // use task::task::Task;
 // use task::task_options::TaskOptions;
 // use task::task_result::TaskResult;
 // use task::task_status::TaskStatus;
 // use thepipelinetool::prelude::*;
 
-fn get_db_url() -> String {
-    env::var("POSTGRES_URL")
-        .unwrap_or("postgres://postgres:example@0.0.0.0:5432".to_string())
-        .to_string()
-}
-
-fn get_redis_url() -> String {
-    env::var("REDIS_URL")
-        .unwrap_or("redis://0.0.0.0:6379".to_string())
-        .to_string()
-}
 
 impl Db {
     #[timed(duration(printer = "debug!"))]
-    pub async fn get_runs(dag_name: &str) -> Vec<usize> {
+    pub fn new(
+        name: &str,
+        nodes: &[Task],
+        edges: &HashSet<(usize, usize)>,
+        pool: Pool<Postgres>,
+        // redis: Connection,
+    ) -> Self {
+        let redis = get_redis_client();
+        Self {
+            name: name.into(),
+            edges: edges.clone(),
+            nodes: nodes.to_vec(),
+            pool,
+            redis,
+        }
+    }
+
+    #[timed(duration(printer = "debug!"))]
+    pub async fn get_runs(dag_name: &str, pool: Pool<Postgres>) -> Vec<usize> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
+                //
 
                 let rows = sqlx::query("SELECT run_id FROM runs WHERE dag_name = $1")
                     .bind(dag_name)
-                    .fetch_all(&client)
+                    .fetch_all(&pool)
                     .await
                     .unwrap();
 
@@ -79,25 +90,23 @@ impl Db {
     // pub async fn get_incomplete_tasks() {
     //     tokio::task::block_in_place(|| {
     //         tokio::runtime::Handle::current().block_on(async {
-    //             // let client = Db::get_client().await;
+    //             //
 
     //             // Db::get_runs(dag_name)
     //         })
     //     })
     // }
     #[timed(duration(printer = "debug!"))]
-    pub async fn get_all_runs(dag_name: &str) -> Vec<(usize, String)> {
+    pub async fn get_all_runs(dag_name: &str, pool: Pool<Postgres>) -> Vec<(usize, String)> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 // TODO get only incomplete
                 let rows = sqlx::query(
                     "SELECT run_id, dag_id FROM runs WHERE dag_name = $1 AND status = $2",
                 )
                 .bind(dag_name)
                 .bind("Pending")
-                .fetch_all(&client)
+                .fetch_all(&pool)
                 .await
                 .unwrap();
 
@@ -116,8 +125,7 @@ impl Db {
     }
 
     #[timed(duration(printer = "debug!"))]
-    pub async fn init_tables() {
-        let client = Db::get_client().await;
+    pub async fn init_tables(pool: Pool<Postgres>) {
         // dbg!(1);
 
         // sqlx::query(
@@ -129,7 +137,7 @@ impl Db {
         //     );
         // ",
         // )
-        // .execute(&client)
+        // .execute(&self.pool)
         // .await
         // .ok();
         sqlx::query(
@@ -145,7 +153,7 @@ impl Db {
             );
             ",
         )
-        .execute(&client)
+        .execute(&pool)
         .await
         .ok();
         sqlx::query(
@@ -163,7 +171,7 @@ impl Db {
             );
             ",
         )
-        .execute(&client)
+        .execute(&pool)
         .await
         .ok();
         sqlx::query(
@@ -190,7 +198,7 @@ impl Db {
             );
             ",
         )
-        .execute(&client)
+        .execute(&pool)
         .await
         .ok();
         sqlx::query(
@@ -203,7 +211,7 @@ impl Db {
             );
             ",
         )
-        .execute(&client)
+        .execute(&pool)
         .await
         .ok();
         sqlx::query(
@@ -216,7 +224,7 @@ impl Db {
             );
             ",
         )
-        .execute(&client)
+        .execute(&pool)
         .await
         .ok();
         sqlx::query(
@@ -230,177 +238,9 @@ impl Db {
             );
         ",
         )
-        .execute(&client)
+        .execute(&pool)
         .await
         .ok();
-    }
-
-    #[timed(duration(printer = "debug!"))]
-    pub fn get_redis_client() -> Connection {
-        let client = redis::Client::open(get_redis_url()).unwrap();
-        client.get_connection().unwrap()
-    }
-
-    #[timed(duration(printer = "debug!"))]
-    async fn get_client() -> Pool<Postgres> {
-        let options = PgConnectOptions::from_str(&get_db_url())
-            .unwrap()
-            // .log_statements(LevelFilter::Debug);
-            .log_slow_statements(LevelFilter::Debug, Duration::new(0, 500_000_000).clone());
-
-        PgPoolOptions::new().connect_with(options).await.unwrap()
-
-        // PgPoolOptions::new()
-        //     .connect("postgres://postgres:example@localhost:5432")
-        //     .await
-        //     .unwrap()
-
-        // sqlx::query(
-        //     "
-        //         CREATE TABLE dags (
-        //             dag_id      TEXT PRIMARY KEY
-        //         );
-        //     ",
-        // )
-        // .execute(&client)
-        // .await
-        // .ok();
-        // sqlx::query(
-        //     "
-        //         CREATE TABLE runs (
-        //             run_id  SERIAL,
-        //             dag_id  TEXT,
-        //             timestamp timestamptz not null default NOW(),
-        //             PRIMARY KEY (run_id, dag_id)
-        //         );
-        //         ",
-        // )
-        // .execute(&client)
-        // .await
-        // .ok();
-        // sqlx::query(
-        //     "
-        //         CREATE TABLE tasks (
-        //             run_id  INT,
-        //             task_id INT,
-        //             name    TEXT NOT NULL,
-        //             function_name   TEXT NOT NULL,
-        //             template_args   JSONB,
-        //             options         JSONB NOT NULL,
-        //             lazy_expand     BOOL NOT NULL,
-        //             is_dynamic      BOOL NOT NULL,
-        //             PRIMARY KEY (run_id, task_id)
-        //         );
-        //         ",
-        // )
-        // .execute(&client)
-        // .await
-        // .ok();
-        // sqlx::query(
-        //     "
-        //         CREATE TABLE task_results (
-        //             run_id      INT NOT NULL,
-        //             task_id     INT NOT NULL,
-        //             result      JSONB NOT NULL,
-        //             task_name   TEXT NOT NULL,
-        //             attempt     INT NOT NULL,
-        //             max_attempts    INT NOT NULL,
-        //             function_name   TEXT NOT NULL,
-        //             success         BOOL NOT NULL,
-        //             stdout          TEXT NOT NULL,
-        //             stderr          TEXT NOT NULL,
-        //             template_args_str   TEXT NOT NULL,
-        //             resolved_args_str   TEXT NOT NULL,
-        //             started             TEXT NOT NULL,
-        //             ended               TEXT NOT NULL,
-        //             elapsed             INT NOT NULL,
-        //             premature_failure   BOOL NOT NULL,
-        //             premature_failure_error_str TEXT NOT NULL,
-        //             timestamp timestamptz not null default NOW()
-        //         );
-        //         ",
-        // )
-        // .execute(&client)
-        // .await
-        // .ok();
-        // sqlx::query(
-        //     "
-        //         CREATE TABLE task_statuses (
-        //             run_id      INT NOT NULL,
-        //             task_id     INT NOT NULL,
-        //             status      TEXT NOT NULL,
-        //             timestamp timestamptz not null default NOW()
-        //         );
-        //         ",
-        // )
-        // .execute(&client)
-        // .await
-        // .ok();
-        // sqlx::query(
-        //     "
-        //         CREATE TABLE edges (
-        //             run_id  INT,
-        //             up      INT,
-        //             down    INT,
-        //             PRIMARY KEY (run_id, up, down)
-        //         );
-        //         ",
-        // )
-        // .execute(&client)
-        // .await
-        // .ok();
-        // sqlx::query(
-        //     "
-        //         CREATE TABLE dep_keys (
-        //             run_id INT,
-        //             task_id INT,
-        //             upstream_task_id INT,
-        //             template_arg_key TEXT,
-        //             upstream_result_key TEXT
-        //         );
-        //     ",
-        // )
-        // .execute(&client)
-        // .await
-        // .ok();
-
-        // // Create an index for the `dag_id` column in the `dags` table
-        // sqlx::query("CREATE INDEX idx_dags_dag_id ON dags (dag_id);")
-        //     .execute(&client)
-        //     .await
-        //     .ok();
-
-        // // Create an index for the `dag_id` column in the `runs` table
-        // sqlx::query("CREATE INDEX idx_runs_dag_id ON runs (run_id, dag_id);")
-        //     .execute(&client)
-        //     .await
-        //     .ok();
-
-        // // Create an index for the `run_id` column in the `tasks` table
-        // sqlx::query("CREATE INDEX idx_tasks_run_id ON tasks (run_id, task_id);")
-        //     .execute(&client)
-        //     .await
-        //     .ok();
-
-        // // Create an index for the `task_id` column in the `task_results` table
-        // sqlx::query("CREATE INDEX idx_task_results_task_id ON task_results (run_id, task_id);")
-        //     .execute(&client)
-        //     .await
-        //     .ok();
-
-        // // Create an index for the `run_id` column in the `edges` table
-        // sqlx::query("CREATE INDEX idx_edges_run_id ON edges (run_id, up);")
-        //     .execute(&client)
-        //     .await
-        //     .ok();
-
-        // // Create an index for the `run_id` and `task_id` columns in the `dep_keys` table
-        // sqlx::query("CREATE INDEX idx_dep_keys_run_id_task_id ON dep_keys (run_id, task_id, upstream_task_id);")
-        //     .execute(&client)
-        //     .await
-        //     .ok();
-
-        // client
     }
 
     #[timed(duration(printer = "debug!"))]
@@ -408,17 +248,18 @@ impl Db {
         dag_name: &str,
         dag_hash: &str,
         logical_date: DateTime<Utc>,
+        pool: Pool<Postgres>,
     ) -> bool {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
+                // 
                 let task = sqlx::query(
                     "SELECT EXISTS(SELECT 1 FROM runs WHERE dag_id = $1 AND dag_name = $2 AND logical_date = $3 )",
                 )
                 .bind(dag_hash)
                 .bind(dag_name)
                 .bind(logical_date)
-                .fetch_one(&client)
+                .fetch_one(&pool)
                 .await;
                 task.unwrap().get(0)
             })
@@ -449,10 +290,10 @@ impl Runner for Db {
     // }
 
     #[timed(duration(printer = "debug!"))]
-    fn get_task_result(&self, dag_run_id: &usize, task_id: &usize) -> TaskResult {
-        let mut redis = Db::get_redis_client();
+    fn get_task_result(&mut self, dag_run_id: &usize, task_id: &usize) -> TaskResult {
+        // let mut redis = Db::get_redis_client();
         let result: Result<String, redis::RedisError> =
-            redis.get(format!("task_result:{dag_run_id}:{task_id}"));
+            self.redis.get(format!("task_result:{dag_run_id}:{task_id}"));
 
         if result.is_ok() {
             println!("hit cache - task_result:{dag_run_id}:{task_id}");
@@ -462,8 +303,6 @@ impl Runner for Db {
 
             let res = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async {
-                    let client = Db::get_client().await;
-
                     let task = sqlx::query(
                         "
                     SELECT *
@@ -475,7 +314,7 @@ impl Runner for Db {
                     )
                     .bind(*dag_run_id as i32)
                     .bind(*task_id as i32)
-                    .fetch_one(&client)
+                    .fetch_one(&self.pool)
                     .await
                     .unwrap();
                     // let id: i32 = task.get("task_id");
@@ -509,7 +348,7 @@ impl Runner for Db {
                 })
             });
 
-            let _: () = redis
+            let _: () = self.redis
                 .set(
                     format!("task_result:{dag_run_id}:{task_id}"),
                     serde_json::to_string(&res).unwrap(),
@@ -524,15 +363,13 @@ impl Runner for Db {
     fn get_attempt_by_task_id(&self, dag_run_id: &usize, task_id: &usize) -> usize {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 // Count the number of results for the given dag_run_id and task_id
                 let result: i64 = sqlx::query(
                     "SELECT COUNT(*) FROM task_results WHERE run_id = $1 AND task_id = $2",
                 )
                 .bind(*dag_run_id as i32)
                 .bind(*task_id as i32)
-                .fetch_one(&client)
+                .fetch_one(&self.pool)
                 .await
                 .unwrap()
                 .get(0);
@@ -543,11 +380,11 @@ impl Runner for Db {
     }
 
     #[timed(duration(printer = "debug!"))]
-    fn get_task_status(&self, dag_run_id: &usize, task_id: &usize) -> TaskStatus {
+    fn get_task_status(&mut self, dag_run_id: &usize, task_id: &usize) -> TaskStatus {
         let mut status = TaskStatus::Pending.as_str().to_string();
 
-        let mut redis = Db::get_redis_client();
-        let result = redis.get(format!("task_status:{dag_run_id}:{task_id}"));
+        // let mut redis = Db::get_redis_client();
+        let result = self.redis.get(format!("task_status:{dag_run_id}:{task_id}"));
 
         let task_status = if result.is_ok() {
             println!("hit cache - task_status:{dag_run_id}:{task_id}");
@@ -558,8 +395,6 @@ impl Runner for Db {
             result.unwrap_or_else(|_| {
                 tokio::task::block_in_place(|| {
                     tokio::runtime::Handle::current().block_on(async {
-                        let client = Db::get_client().await;
-
                         // SORT
                         let s = sqlx::query(
                             "
@@ -572,7 +407,7 @@ impl Runner for Db {
                         )
                         .bind(*dag_run_id as i32)
                         .bind(*task_id as i32)
-                        .fetch_optional(&client)
+                        .fetch_optional(&self.pool)
                         .await
                         .unwrap();
 
@@ -582,7 +417,7 @@ impl Runner for Db {
                         }
                     })
                 });
-                let _: () = redis
+                let _: () = self.redis
                     .set(format!("task_status:{dag_run_id}:{task_id}"), &status)
                     .unwrap();
 
@@ -595,8 +430,8 @@ impl Runner for Db {
 
     #[timed(duration(printer = "debug!"))]
     fn set_task_status(&mut self, dag_run_id: &usize, task_id: &usize, task_status: TaskStatus) {
-        let mut redis = Db::get_redis_client();
-        let _: () = redis
+        // let mut redis = Db::get_redis_client();
+        let _: () = self.redis
             .set(
                 format!("task_status:{dag_run_id}:{task_id}"),
                 task_status.as_str(),
@@ -605,8 +440,6 @@ impl Runner for Db {
 
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 sqlx::query(
                     "
                     INSERT INTO task_statuses (run_id, task_id, status)
@@ -616,7 +449,7 @@ impl Runner for Db {
                 .bind(*dag_run_id as i32)
                 .bind(*task_id as i32)
                 .bind(task_status.as_str())
-                .execute(&client)
+                .execute(&self.pool)
                 .await
                 .unwrap(); // Be cautious with unwrap, consider proper error handling
             })
@@ -632,8 +465,6 @@ impl Runner for Db {
     ) -> usize {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 // sqlx::query(
                 //     "
                 //         INSERT INTO dags (dag_id, dag_name)
@@ -644,7 +475,7 @@ impl Runner for Db {
                 // )
                 // .bind(dag_hash)
                 // .bind(dag_name)
-                // .execute(&client)
+                // .execute(&self.pool)
                 // .await
                 // .unwrap();
 
@@ -658,7 +489,7 @@ impl Runner for Db {
                 .bind(dag_hash)
                 .bind(dag_name)
                 .bind(logical_date)
-                .fetch_one(&client)
+                .fetch_one(&self.pool)
                 .await
                 .unwrap()
                 .get(0);
@@ -677,7 +508,7 @@ impl Runner for Db {
                 //     // .bind(serde_json::to_value(task.options).unwrap())
                 //     // .bind(task.lazy_expand)
                 //     // .bind(task.is_dynamic)
-                //     // .execute(&client).await.unwrap();
+                //     // .execute(&self.pool).await.unwrap();
                 //     self.append_new_task(
                 //         &(dag_run_id as usize),
                 //         task.name,
@@ -714,7 +545,7 @@ impl Runner for Db {
     fn insert_task_results(&mut self, dag_run_id: &usize, result: &TaskResult) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
+                
 
                 sqlx::query(
                     "
@@ -745,14 +576,14 @@ impl Runner for Db {
                 .bind(result.premature_failure)
                 .bind(&result.premature_failure_error_str)
                 .bind(result.is_branch)
-                .execute(&client)
+                .execute(&self.pool)
                 .await
                 .unwrap();
             })
         });
 
-        let mut redis = Db::get_redis_client();
-        let _: () = redis
+        // let mut redis = Db::get_redis_client();
+        let _: () = self.redis
             .set(
                 format!("task_result:{dag_run_id}:{}", result.task_id),
                 serde_json::to_string(result).unwrap(),
@@ -765,13 +596,11 @@ impl Runner for Db {
         dbg!("mark finished!");
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 sqlx::query("UPDATE runs SET status = $2 WHERE run_id = $1")
                     .bind(*dag_run_id as i32)
                     .bind("Completed")
                     // .bind(v)
-                    .execute(&client)
+                    .execute(&self.pool)
                     .await
                     .unwrap();
             })
@@ -779,7 +608,7 @@ impl Runner for Db {
     }
 
     #[timed(duration(printer = "debug!"))]
-    fn any_upstream_incomplete(&self, dag_run_id: &usize, task_id: &usize) -> bool {
+    fn any_upstream_incomplete(&mut self, dag_run_id: &usize, task_id: &usize) -> bool {
         self.get_upstream(dag_run_id, task_id)
             .iter()
             .any(|edge| !self.is_task_completed(dag_run_id, edge))
@@ -795,8 +624,6 @@ impl Runner for Db {
 
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 let rows = sqlx::query(
                     "
                         SELECT upstream_task_id, template_arg_key, upstream_result_key
@@ -806,7 +633,7 @@ impl Runner for Db {
                 )
                 .bind(*dag_run_id as i32)
                 .bind(*task_id as i32)
-                .fetch_all(&client)
+                .fetch_all(&self.pool)
                 .await
                 .unwrap();
 
@@ -830,12 +657,10 @@ impl Runner for Db {
     fn get_downstream(&self, dag_run_id: &usize, task_id: &usize) -> HashSet<usize> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 let rows = sqlx::query("SELECT down FROM edges WHERE run_id = $1 AND up = $2")
                     .bind(*dag_run_id as i32)
                     .bind(*task_id as i32)
-                    .fetch_all(&client)
+                    .fetch_all(&self.pool)
                     .await
                     .unwrap();
 
@@ -855,7 +680,7 @@ impl Runner for Db {
     fn remove_edge(&mut self, dag_run_id: &usize, edge: &(usize, usize)) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
+                
 
                 sqlx::query(
                     "
@@ -866,7 +691,7 @@ impl Runner for Db {
                 .bind(*dag_run_id as i32)
                 .bind(edge.0 as i32)
                 .bind(edge.1 as i32)
-                .execute(&client)
+                .execute(&self.pool)
                 .await
                 .unwrap();
 
@@ -879,7 +704,7 @@ impl Runner for Db {
                 .bind(*dag_run_id as i32)
                 .bind(edge.1 as i32)
                 .bind(edge.0 as i32)
-                .execute(&client)
+                .execute(&self.pool)
                 .await
                 .unwrap();
             })
@@ -890,8 +715,6 @@ impl Runner for Db {
     fn insert_edge(&mut self, dag_run_id: &usize, edge: &(usize, usize)) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 sqlx::query(
                     "
                             INSERT INTO edges (run_id, up, down)
@@ -903,7 +726,7 @@ impl Runner for Db {
                 .bind(*dag_run_id as i32)
                 .bind(edge.0 as i32)
                 .bind(edge.1 as i32)
-                .execute(&client)
+                .execute(&self.pool)
                 .await
                 .unwrap();
             })
@@ -914,12 +737,10 @@ impl Runner for Db {
     fn get_upstream(&self, dag_run_id: &usize, task_id: &usize) -> HashSet<usize> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 let rows = sqlx::query("SELECT up FROM edges WHERE run_id = $1 AND down = $2")
                     .bind(*dag_run_id as i32)
                     .bind(*task_id as i32)
-                    .fetch_all(&client)
+                    .fetch_all(&self.pool)
                     .await
                     .unwrap();
 
@@ -945,7 +766,7 @@ impl Runner for Db {
     ) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
+                
 
                 sqlx::query(
                     "
@@ -958,7 +779,7 @@ impl Runner for Db {
                 .bind(upstream.0 as i32)
                 .bind(upstream.1)
                 .bind(v)
-                .execute(&client)
+                .execute(&self.pool)
                 .await
                 .unwrap();
             })
@@ -974,13 +795,11 @@ impl Runner for Db {
     fn get_task_by_id(&self, dag_run_id: &usize, task_id: &usize) -> Task {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 let task =
                     sqlx::query("SELECT * FROM tasks WHERE run_id = $1 AND task_id = $2 LIMIT 1")
                         .bind(*dag_run_id as i32)
                         .bind(*task_id as i32)
-                        .fetch_one(&client)
+                        .fetch_one(&self.pool)
                         .await
                         .unwrap();
                 let id: i32 = task.get("task_id");
@@ -1019,7 +838,7 @@ impl Runner for Db {
     ) -> usize {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
+                
 
                 let q: i32 = sqlx::query(
                     "
@@ -1039,7 +858,7 @@ impl Runner for Db {
                 .bind(lazy_expand)
                 .bind(is_dynamic)
                 .bind(is_branch)
-                .fetch_one(&client).await.unwrap().get(0);
+                .fetch_one(&self.pool).await.unwrap().get(0);
 
                 self.set_task_status(dag_run_id, &(q as usize), TaskStatus::Pending);
 
@@ -1052,8 +871,6 @@ impl Runner for Db {
     fn get_template_args(&self, dag_run_id: &usize, task_id: &usize) -> serde_json::Value {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 let k = sqlx::query(
                     "
                     SELECT template_args
@@ -1064,7 +881,7 @@ impl Runner for Db {
                 )
                 .bind(*dag_run_id as i32)
                 .bind(*task_id as i32)
-                .fetch_optional(&client)
+                .fetch_optional(&self.pool)
                 .await;
 
                 // if k.is_err() {
@@ -1081,7 +898,6 @@ impl Runner for Db {
     fn set_template_args(&mut self, dag_run_id: &usize, task_id: &usize, template_args_str: &str) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
                 let v: Value = serde_json::from_str(template_args_str).unwrap();
 
                 sqlx::query(
@@ -1090,20 +906,11 @@ impl Runner for Db {
                 .bind(*dag_run_id as i32)
                 .bind(*task_id as i32)
                 .bind(v)
-                .execute(&client)
+                .execute(&self.pool)
                 .await
                 .unwrap();
             })
         });
-    }
-
-    #[timed(duration(printer = "debug!"))]
-    fn new(name: &str, nodes: &[Task], edges: &HashSet<(usize, usize)>) -> Self {
-        Self {
-            name: name.into(),
-            edges: edges.clone(),
-            nodes: nodes.to_vec(),
-        }
     }
 
     #[timed(duration(printer = "debug!"))]
@@ -1115,10 +922,8 @@ impl Runner for Db {
     fn set_status_to_running_if_possible(&mut self, dag_run_id: &usize, task_id: &usize) -> bool {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
-                let mut redis = Db::get_redis_client();
-                let _: () = redis
+                // let mut redis = Db::get_redis_client();
+                let _: () = self.redis
                     .set(format!("task_status:{dag_run_id}:{task_id}"), "Running")
                     .unwrap();
 
@@ -1139,7 +944,7 @@ impl Runner for Db {
                 )
                 .bind(*dag_run_id as i32)
                 .bind(*task_id as i32)
-                .execute(&client)
+                .execute(&self.pool)
                 .await
                 .unwrap()
                 .rows_affected();
@@ -1158,12 +963,10 @@ impl Runner for Db {
     fn get_all_tasks(&self, dag_run_id: &usize) -> Vec<Task> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 // TODO sort?
                 let tasks = sqlx::query("SELECT * FROM tasks WHERE run_id = $1")
                     .bind(*dag_run_id as i32)
-                    .fetch_all(&client)
+                    .fetch_all(&self.pool)
                     .await
                     .unwrap();
 
@@ -1195,15 +998,13 @@ impl Runner for Db {
     }
 
     #[timed(duration(printer = "debug!"))]
-    fn get_all_tasks_incomplete(&self, dag_run_id: &usize) -> Vec<Task> {
+    fn get_all_tasks_incomplete(&mut self, dag_run_id: &usize) -> Vec<Task> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let client = Db::get_client().await;
-
                 // TODO sort?
                 let tasks = sqlx::query("SELECT * FROM tasks WHERE run_id = $1")
                     .bind(*dag_run_id as i32)
-                    .fetch_all(&client)
+                    .fetch_all(&self.pool)
                     .await
                     .unwrap();
 

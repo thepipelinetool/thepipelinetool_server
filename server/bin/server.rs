@@ -1,9 +1,10 @@
 use std::collections::HashSet;
 
+use axum::extract::State;
 use axum::{extract::Path, http::Method, Json, Router};
 use chrono::Utc;
-use redis::Commands;
 use log::debug;
+use redis::{Commands, Connection};
 
 // use runner::{
 //     local::{hash_dag, LocalRunner},
@@ -16,6 +17,8 @@ use server::{
     _get_task_result, _get_task_status, _trigger_run, catchup::catchup, db::Db,
     scheduler::scheduler,
 };
+use server::{get_client, get_redis_client};
+use sqlx::PgPool;
 use thepipelinetool::prelude::*;
 // use task::task::Task;
 use tower_http::cors::{Any, CorsLayer};
@@ -32,17 +35,21 @@ async fn ping() -> &'static str {
 }
 
 #[timed(duration(printer = "debug!"))]
-async fn get_runs(Path(dag_name): Path<String>) -> Json<Value> {
-    json!(Db::get_runs(&dag_name).await).into()
+async fn get_runs(Path(dag_name): Path<String>, State(pool): State<PgPool>) -> Json<Value> {
+    json!(Db::get_runs(&dag_name, pool).await).into()
 }
 
 // TODO return only statuses?
-async fn get_runs_with_tasks(Path(dag_name): Path<String>) -> Json<Value> {
+async fn get_runs_with_tasks(
+    Path(dag_name): Path<String>,
+    State(pool): State<PgPool>,
+    
+) -> Json<Value> {
     let mut res = json!({});
 
-    for run_id in Db::get_runs(&dag_name).await.iter() {
+    for run_id in Db::get_runs(&dag_name, pool.clone()).await.iter() {
         let mut tasks = json!({});
-        for task in _get_all_tasks(&dag_name, *run_id) {
+        for task in _get_all_tasks(&dag_name, *run_id, pool.clone()) {
             tasks[format!("{}_{}", task.function_name, task.id)] = json!(task);
         }
         res[run_id.to_string()] = tasks;
@@ -64,27 +71,39 @@ async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
     _get_default_tasks(&dag_name).into()
 }
 
-async fn get_all_tasks(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<Value> {
-    json!(_get_all_tasks(&dag_name, run_id)).into()
+async fn get_all_tasks(
+    Path((dag_name, run_id)): Path<(String, usize)>,
+    State(pool): State<PgPool>,
+    
+) -> Json<Value> {
+    json!(_get_all_tasks(&dag_name, run_id, pool)).into()
 }
 
-async fn get_task(Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>) -> Json<Value> {
-    json!(_get_task(&dag_name, run_id, task_id)).into()
+async fn get_task(
+    Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
+    State(pool): State<PgPool>,
+    
+) -> Json<Value> {
+    json!(_get_task(&dag_name, run_id, task_id, pool)).into()
 }
 
 async fn get_task_status(
     Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
+    State(pool): State<PgPool>,
+    
 ) -> Json<Value> {
     json!({
-            "status": _get_task_status(&dag_name, run_id, task_id).as_str()
+            "status": _get_task_status(&dag_name, run_id, task_id, pool).as_str()
     })
     .into()
 }
 
 async fn get_task_result(
     Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
+    State(pool): State<PgPool>,
+    
 ) -> Json<Value> {
-    json!(_get_task_result(&dag_name, run_id, task_id)).into()
+    json!(_get_task_result(&dag_name, run_id, task_id, pool)).into()
 }
 
 async fn get_dags() -> Json<Value> {
@@ -100,8 +119,12 @@ async fn get_dags() -> Json<Value> {
     json!(res).into()
 }
 
-async fn get_run_graph(Path((dag_name, run_id)): Path<(String, usize)>) -> Json<Value> {
-    let runner = Db::new(&dag_name, &[], &HashSet::new());
+async fn get_run_graph(
+    Path((dag_name, run_id)): Path<(String, usize)>,
+    State(pool): State<PgPool>,
+    
+) -> Json<Value> {
+    let mut runner = Db::new(&dag_name, &[], &HashSet::new(), pool);
     let graph = runner.get_graphite_graph(&run_id);
     json!(graph).into()
 }
@@ -117,17 +140,25 @@ async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
     json!(graph).into()
 }
 
-async fn trigger(Path(dag_name): Path<String>) {
+async fn trigger(
+    Path(dag_name): Path<String>,
+    State(pool): State<PgPool>,
+    
+) {
     tokio::spawn(async move {
-        _trigger_run(&dag_name, Utc::now().into());
+        _trigger_run(&dag_name, Utc::now().into(), pool);
     });
 }
 
-fn _trigger_local_run(Path(dag_name): Path<String>) {
+fn _trigger_local_run(
+    Path(dag_name): Path<String>,
+    State(pool): State<PgPool>,
+    
+) {
     let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
     let edges: HashSet<(usize, usize)> =
         serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
-    let mut runner = Db::new(&dag_name, &nodes, &edges);
+    let mut runner = Db::new(&dag_name, &nodes, &edges, pool);
     let dag_run_id = runner.enqueue_run(
         &dag_name,
         &hash_dag(
@@ -145,12 +176,15 @@ async fn main() {
     // initialize the logger in the environment? not really sure.
     env_logger::init();
 
-    Db::init_tables().await;
+    let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
+    let redis = get_redis_client();
+
+    Db::init_tables(pool.clone()).await;
 
     let now = Utc::now();
 
-    catchup(&now);
-    scheduler(&now);
+    catchup(&now, pool.clone());
+    scheduler(&now, pool.clone());
 
     let app = Router::new()
         .route("/ping", get(ping))
@@ -181,7 +215,9 @@ async fn main() {
                 .allow_methods([Method::GET, Method::POST])
                 .allow_origin(Any),
         )
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http())
+        .with_state(pool);
+        // .with_state(redis);
 
     axum::Server::bind(&"0.0.0.0:8000".parse().unwrap())
         .serve(app.into_make_service())

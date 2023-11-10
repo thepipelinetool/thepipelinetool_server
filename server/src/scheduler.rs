@@ -5,6 +5,8 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use redis::Connection;
+use sqlx::{Pool, Postgres};
 use thepipelinetool::prelude::*;
 
 use saffron::Cron;
@@ -12,14 +14,15 @@ use thepipelinetool::prelude::DagOptions;
 use tokio::time::sleep;
 
 use crate::{
-    _get_dags, _get_default_edges, _get_default_tasks, _get_options, _trigger_run, db::Db,
+    _get_dags, _get_default_edges, _get_default_tasks, _get_options, _trigger_run, db::Db, get_redis_client,
 };
 
-pub fn scheduler(up_to: &DateTime<Utc>) {
+pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
     let up_to_initial = up_to.clone();
 
     let last_checked: Arc<Mutex<HashMap<String, DateTime<Utc>>>> =
         Arc::new(Mutex::new(HashMap::new()));
+    // let pool = Arc::new(Mutex::new(pool));
 
     tokio::spawn(async move {
         loop {
@@ -27,6 +30,8 @@ pub fn scheduler(up_to: &DateTime<Utc>) {
 
             for dag_name in dags {
                 let last_checked = last_checked.clone();
+                let pool: Pool<Postgres> = pool.clone();
+
                 tokio::spawn(async move {
                     let options: DagOptions =
                         serde_json::from_value(_get_options(&dag_name)).unwrap();
@@ -87,11 +92,17 @@ pub fn scheduler(up_to: &DateTime<Utc>) {
                                         }
                                     }
                                     // check if date is already in db
-                                    if Db::contains_logical_date(&dag_name, &hash, time) {
+                                    if Db::contains_logical_date(
+                                        &dag_name,
+                                        &hash,
+                                        time,
+                                        pool.clone(),
+                                    ) {
                                         continue 'inner;
                                     }
+                                    let redis = get_redis_client();
 
-                                    _trigger_run(&dag_name, time);
+                                    _trigger_run(&dag_name, time, pool.clone());
                                     println!("scheduling {} {dag_name}", time.format("%F %R"));
                                 }
                             }
