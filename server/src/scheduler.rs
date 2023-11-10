@@ -17,7 +17,7 @@ use crate::{
 };
 
 pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
-    let up_to_initial = up_to.clone();
+    let up_to_initial = *up_to;
 
     let last_checked: Arc<Mutex<HashMap<String, DateTime<Utc>>>> =
         Arc::new(Mutex::new(HashMap::new()));

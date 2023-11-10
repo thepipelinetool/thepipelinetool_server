@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub fn catchup(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
-    let up_to: DateTime<Utc> = up_to.clone();
+    let up_to: DateTime<Utc> = *up_to;
     // let up_to = up_to.clone();
     tokio::spawn(async move {
         let dags = _get_dags();

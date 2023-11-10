@@ -44,7 +44,7 @@ async fn main() {
 
                 // TODO read max_threads from env
                 if &dag_id == hash {
-                    Db::new(&dag_name, &nodes, &edges, pool.clone()).run(&run_id, 9);
+                    Db::new(&dag_name, &nodes, edges, pool.clone()).run(&run_id, 9);
                 }
             }
         }

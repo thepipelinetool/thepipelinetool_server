@@ -34,13 +34,13 @@ pub fn _get_default_tasks(dag_name: &str) -> Value {
 
 #[timed(duration(printer = "debug!"))]
 pub fn _get_all_tasks(dag_name: &str, run_id: usize, pool: Pool<Postgres>) -> Vec<Task> {
-    let runner = Db::new(&dag_name, &[], &HashSet::new(), pool);
+    let runner = Db::new(dag_name, &[], &HashSet::new(), pool);
     runner.get_all_tasks(&run_id)
 }
 
 #[timed(duration(printer = "debug!"))]
 pub fn _get_task(dag_name: &str, run_id: usize, task_id: usize, pool: Pool<Postgres>) -> Task {
-    let runner = Db::new(&dag_name, &[], &HashSet::new(), pool);
+    let runner = Db::new(dag_name, &[], &HashSet::new(), pool);
     runner.get_task_by_id(&run_id, &task_id)
 }
 
@@ -52,7 +52,7 @@ pub fn _get_task_status(
     pool: Pool<Postgres>,
     // redis: Connection
 ) -> TaskStatus {
-    let mut runner = Db::new(&dag_name, &[], &HashSet::new(), pool);
+    let mut runner = Db::new(dag_name, &[], &HashSet::new(), pool);
     runner.get_task_status(&run_id, &task_id)
 }
 
@@ -64,7 +64,7 @@ pub fn _get_task_result(
     pool: Pool<Postgres>,
     // redis: Connection
 ) -> TaskResult {
-    let mut runner = Db::new(&dag_name, &[], &HashSet::new(), pool);
+    let mut runner = Db::new(dag_name, &[], &HashSet::new(), pool);
     runner.get_task_result(&run_id, &task_id)
 }
 
@@ -120,16 +120,16 @@ pub fn _get_dags() -> Vec<String> {
 
 #[timed(duration(printer = "debug!"))]
 pub fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>, pool: Pool<Postgres>) {
-    let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
+    let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(dag_name)).unwrap();
     let edges: HashSet<(usize, usize)> =
-        serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
+        serde_json::from_value(_get_default_edges(dag_name)).unwrap();
 
     let hash = hash_dag(
         &serde_json::to_string(&nodes).unwrap(),
         &edges.iter().collect::<Vec<&(usize, usize)>>(),
     );
 
-    Db::new(&dag_name, &nodes, &edges, pool.clone()).enqueue_run(&dag_name, &hash, logical_date);
+    Db::new(dag_name, &nodes, &edges, pool.clone()).enqueue_run(dag_name, &hash, logical_date);
 }
 
 fn get_db_url() -> String {
@@ -143,7 +143,7 @@ pub async fn get_client() -> Pool<Postgres> {
     let options = PgConnectOptions::from_str(&get_db_url())
         .unwrap()
         // .log_statements(LevelFilter::Debug);
-        .log_slow_statements(LevelFilter::Debug, Duration::new(0, 500_000_000).clone());
+        .log_slow_statements(LevelFilter::Debug, Duration::new(0, 500_000_000));
 
     PgPoolOptions::new()
         // .max_connections(max)

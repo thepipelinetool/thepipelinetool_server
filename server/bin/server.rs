@@ -127,7 +127,7 @@ async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
     let edges: HashSet<(usize, usize)> =
         serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
     let mut runner = LocalRunner::new("", &nodes, &edges);
-    runner.enqueue_run("local", "", Utc::now().into());
+    runner.enqueue_run("local", "", Utc::now());
     let graph = runner.get_graphite_graph(&0);
 
     json!(graph).into()
@@ -135,7 +135,7 @@ async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
 
 async fn trigger(Path(dag_name): Path<String>, State(pool): State<PgPool>) {
     tokio::spawn(async move {
-        _trigger_run(&dag_name, Utc::now().into(), pool);
+        _trigger_run(&dag_name, Utc::now(), pool);
     });
 }
 
@@ -150,7 +150,7 @@ fn _trigger_local_run(Path(dag_name): Path<String>, State(pool): State<PgPool>) 
             &serde_json::to_string(&nodes).unwrap(),
             &edges.iter().collect::<Vec<&(usize, usize)>>(),
         ),
-        Utc::now().into(),
+        Utc::now(),
     );
     runner.run(&dag_run_id, 1);
 }
