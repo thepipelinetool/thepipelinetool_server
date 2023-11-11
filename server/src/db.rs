@@ -340,13 +340,10 @@ impl Runner for Db {
                 })
             });
 
-            let _: () = self
-                .redis
-                .set(
-                    format!("task_result:{dag_run_id}:{task_id}"),
-                    serde_json::to_string(&res).unwrap(),
-                )
-                .unwrap();
+            let _: Result<(), redis::RedisError> = self.redis.set(
+                format!("task_result:{dag_run_id}:{task_id}"),
+                serde_json::to_string(&res).unwrap(),
+            );
 
             res
         }
@@ -412,10 +409,9 @@ impl Runner for Db {
                         }
                     })
                 });
-                let _: () = self
+                let _: Result<(), redis::RedisError> = self
                     .redis
-                    .set(format!("task_status:{dag_run_id}:{task_id}"), &status)
-                    .unwrap();
+                    .set(format!("task_status:{dag_run_id}:{task_id}"), &status);
 
                 status.to_string()
             })
@@ -427,13 +423,10 @@ impl Runner for Db {
     #[timed(duration(printer = "debug!"))]
     fn set_task_status(&mut self, dag_run_id: &usize, task_id: &usize, task_status: TaskStatus) {
         // let mut redis = Db::get_redis_client();
-        let _: () = self
-            .redis
-            .set(
-                format!("task_status:{dag_run_id}:{task_id}"),
-                task_status.as_str(),
-            )
-            .unwrap();
+        let _: Result<(), redis::RedisError> = self.redis.set(
+            format!("task_status:{dag_run_id}:{task_id}"),
+            task_status.as_str(),
+        );
 
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -578,13 +571,10 @@ impl Runner for Db {
         });
 
         // let mut redis = Db::get_redis_client();
-        let _: () = self
-            .redis
-            .set(
-                format!("task_result:{dag_run_id}:{}", result.task_id),
-                serde_json::to_string(result).unwrap(),
-            )
-            .unwrap();
+        let _: Result<(), redis::RedisError> = self.redis.set(
+            format!("task_result:{dag_run_id}:{}", result.task_id),
+            serde_json::to_string(result).unwrap(),
+        );
     }
 
     #[timed(duration(printer = "debug!"))]
@@ -913,10 +903,9 @@ impl Runner for Db {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 // let mut redis = Db::get_redis_client();
-                let _: () = self
+                let _: Result<(), redis::RedisError> = self
                     .redis
-                    .set(format!("task_status:{dag_run_id}:{task_id}"), "Running")
-                    .unwrap();
+                    .set(format!("task_status:{dag_run_id}:{task_id}"), "Running");
 
                 // Update the task status to "Running" if its last status is "Pending" or "Retrying"
                 let rows_affected = sqlx::query(
