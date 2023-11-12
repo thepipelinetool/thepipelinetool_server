@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::str::from_utf8;
 
 use axum::extract::State;
 use axum::{extract::Path, http::Method, Json, Router};
@@ -19,6 +20,7 @@ use server::{
 };
 use sqlx::PgPool;
 use thepipelinetool::prelude::*;
+use tower_http::compression::CompressionLayer;
 // use task::task::Task;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -86,11 +88,10 @@ async fn get_task(
 async fn get_task_status(
     Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
     State(pool): State<PgPool>,
-) -> Json<Value> {
-    json!({
-            "status": _get_task_status(&dag_name, run_id, task_id, pool).as_str()
-    })
-    .into()
+) -> String {
+    from_utf8(&[_get_task_status(&dag_name, run_id, task_id, pool).as_u8()])
+        .unwrap()
+        .to_owned()
 }
 
 async fn get_task_result(
@@ -200,6 +201,8 @@ async fn main() {
                 .allow_origin(Any),
         )
         .layer(TraceLayer::new_for_http())
+        .layer(CompressionLayer::new())
+        // .layer()
         .with_state(pool);
     // .with_state(redis);
 
