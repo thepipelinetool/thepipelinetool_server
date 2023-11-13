@@ -74,6 +74,12 @@ async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
     v.into()
 }
 
+async fn get_default_task(Path((dag_name, task_id)): Path<(String, usize)>) -> Json<Value> {
+    let v: Vec<Task> = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
+
+    Json(json!(v.iter().filter(|t| t.id == task_id).next().unwrap()))
+}
+
 async fn get_all_tasks(
     Path((dag_name, run_id)): Path<(String, usize)>,
     State(pool): State<PgPool>,
@@ -190,7 +196,8 @@ async fn main() {
         .route("/tasks/:dag_name/:run_id", get(get_all_tasks))
         .route("/task/:dag_name/:run_id/:task_id", get(get_task))
         .route("/default_tasks/:dag_name", get(get_default_tasks))
-        //
+        .route("/default_task/:dag_name/:task_id", get(get_default_task))
+
         .route("/graph/:dag_name/:run_id", get(get_run_graph))
         .route("/default_graph/:dag_name", get(get_default_graph))
         .layer(
