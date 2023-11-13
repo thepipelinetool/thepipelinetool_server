@@ -6,7 +6,7 @@ use std::{
 // use thepipelinetool::prelude::*;
 
 // use runner::{local::hash_dag, DefRunner, Runner};
-use server::{_get_dags, _get_default_edges, _get_default_tasks, db::Db, get_client};
+use server::{_get_dags, _get_default_edges, _get_default_tasks, _get_hash, db::Db, get_client};
 use thepipelinetool::prelude::*;
 use tokio::time::sleep;
 
@@ -26,18 +26,12 @@ async fn main() {
         // let all_runs = Db::get_all_runs(dag_name, pool.clone()).await;
 
         // for (run_id, dag_id) in all_runs {
-        let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(dag_name)).unwrap();
+        let nodes: Vec<Task> = serde_json::from_str(&_get_default_tasks(dag_name).await).unwrap();
         let edges: HashSet<(usize, usize)> =
-            serde_json::from_value(_get_default_edges(dag_name)).unwrap();
+            serde_json::from_str(&_get_default_edges(dag_name).await).unwrap();
         // dbg!(run_id, &dag_id);
 
-        hash_hashmap.insert(
-            dag_name.clone(),
-            hash_dag(
-                &serde_json::to_string(&nodes).unwrap(),
-                &edges.iter().collect::<Vec<&(usize, usize)>>(),
-            ),
-        );
+        hash_hashmap.insert(dag_name.clone(), _get_hash(&dag_name).await.to_string());
 
         node_hashmap.insert(dag_name.clone(), nodes);
         edges_hashmap.insert(dag_name.clone(), edges);

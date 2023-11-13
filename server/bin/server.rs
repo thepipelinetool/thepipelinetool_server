@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::str::from_utf8;
+// use std::str::from_utf8;
 
 use axum::extract::State;
 use axum::{extract::Path, http::Method, Json, Router};
@@ -12,12 +13,12 @@ use log::debug;
 // };
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
-use server::get_client;
 use server::{
     _get_all_tasks, _get_dags, _get_default_edges, _get_default_tasks, _get_options, _get_task,
     _get_task_result, _get_task_status, _trigger_run, catchup::catchup, db::Db,
     scheduler::scheduler,
 };
+use server::{_get_hash, get_client};
 use sqlx::PgPool;
 use thepipelinetool::prelude::*;
 use tower_http::compression::CompressionLayer;
@@ -68,7 +69,9 @@ async fn get_runs_with_tasks(
 // }
 
 async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
-    _get_default_tasks(&dag_name).into()
+    let v: Value = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
+
+    v.into()
 }
 
 async fn get_all_tasks(
@@ -105,11 +108,13 @@ async fn get_dags() -> Json<Value> {
     let mut res: Vec<Value> = vec![];
 
     for dag_name in _get_dags() {
-        let mut o = _get_options(&dag_name);
+        let mut o: Value = serde_json::from_str(&_get_options(&dag_name).await).unwrap();
         o["dag_name"] = dag_name.into();
 
         res.push(o);
     }
+
+    dbg!(&res);
 
     json!(res).into()
 }
@@ -124,9 +129,9 @@ async fn get_run_graph(
 }
 
 async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
-    let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
+    let nodes: Vec<Task> = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
     let edges: HashSet<(usize, usize)> =
-        serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
+        serde_json::from_str(&_get_default_edges(&dag_name).await).unwrap();
     let mut runner = LocalRunner::new("", &nodes, &edges);
     runner.enqueue_run("local", "", Utc::now());
     let graph = runner.get_graphite_graph(&0);
@@ -136,23 +141,16 @@ async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
 
 async fn trigger(Path(dag_name): Path<String>, State(pool): State<PgPool>) {
     tokio::spawn(async move {
-        _trigger_run(&dag_name, Utc::now(), pool);
+        _trigger_run(&dag_name, Utc::now(), pool).await;
     });
 }
 
-fn _trigger_local_run(Path(dag_name): Path<String>, State(pool): State<PgPool>) {
-    let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
+async fn _trigger_local_run(Path(dag_name): Path<String>, State(pool): State<PgPool>) {
+    let nodes: Vec<Task> = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
     let edges: HashSet<(usize, usize)> =
-        serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
+        serde_json::from_str(&_get_default_edges(&dag_name).await).unwrap();
     let mut runner = Db::new(&dag_name, &nodes, &edges, pool);
-    let dag_run_id = runner.enqueue_run(
-        &dag_name,
-        &hash_dag(
-            &serde_json::to_string(&nodes).unwrap(),
-            &edges.iter().collect::<Vec<&(usize, usize)>>(),
-        ),
-        Utc::now(),
-    );
+    let dag_run_id = runner.enqueue_run(&dag_name, &_get_hash(&dag_name).await, Utc::now());
     runner.run(&dag_run_id, 1);
 }
 

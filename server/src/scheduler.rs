@@ -1,20 +1,17 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
 use chrono::{DateTime, Utc};
 use sqlx::{Pool, Postgres};
-use thepipelinetool::prelude::*;
 
 use saffron::Cron;
 use thepipelinetool::prelude::DagOptions;
 use tokio::time::sleep;
 
-use crate::{
-    _get_dags, _get_default_edges, _get_default_tasks, _get_options, _trigger_run, db::Db,
-};
+use crate::{_get_dags, _get_hash, _get_options, _trigger_run, db::Db};
 
 pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
     let up_to_initial = *up_to;
@@ -33,7 +30,7 @@ pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
 
                 tokio::spawn(async move {
                     let options: DagOptions =
-                        serde_json::from_value(_get_options(&dag_name)).unwrap();
+                        serde_json::from_str(&_get_options(&dag_name).await).unwrap();
                     let up_to = **last_checked
                         .lock()
                         .unwrap()
@@ -67,15 +64,6 @@ pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
                                 }
 
                                 let futures = cron.clone().iter_from(up_to);
-                                let nodes: Vec<Task> =
-                                    serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
-                                let edges: HashSet<(usize, usize)> =
-                                    serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
-
-                                let hash = hash_dag(
-                                    &serde_json::to_string(&nodes).unwrap(),
-                                    &edges.iter().collect::<Vec<&(usize, usize)>>(),
-                                );
 
                                 'inner: for time in futures {
                                     if !cron.contains(time) {
@@ -93,14 +81,14 @@ pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
                                     // check if date is already in db
                                     if Db::contains_logical_date(
                                         &dag_name,
-                                        &hash,
+                                        &_get_hash(&dag_name).await,
                                         time,
                                         pool.clone(),
                                     ) {
                                         continue 'inner;
                                     }
 
-                                    _trigger_run(&dag_name, time, pool.clone());
+                                    _trigger_run(&dag_name, time, pool.clone()).await;
                                     println!("scheduling {} {dag_name}", time.format("%F %R"));
                                 }
                             }
@@ -111,7 +99,7 @@ pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
             }
 
             // TODO read from env
-            sleep(Duration::new(1, 0)).await;
+            sleep(Duration::new(5, 0)).await;
         }
     });
 }

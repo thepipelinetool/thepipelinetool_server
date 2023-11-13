@@ -1,5 +1,13 @@
 use std::{
-    collections::HashSet, env, fs, io::ErrorKind, path::PathBuf, process::Command, str::FromStr,
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    env,
+    fs,
+    io::ErrorKind,
+    path::PathBuf,
+    str::FromStr,
+    sync::{Arc, OnceLock},
+    // sync::{Arc, OnceLock},
     time::Duration,
 };
 
@@ -7,13 +15,13 @@ use chrono::{DateTime, Utc};
 use db::Db;
 use log::{debug, LevelFilter};
 use redis::Connection;
-use serde_json::Value;
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     ConnectOptions, Pool, Postgres,
 };
 use thepipelinetool::prelude::*;
 use timed::timed;
+use tokio::{process::Command, sync::Mutex};
 
 pub mod catchup;
 pub mod db;
@@ -21,16 +29,152 @@ pub mod scheduler;
 
 pub const DAGS_DIR: &str = "./bin";
 
-#[timed(duration(printer = "debug!"))]
-pub fn _get_default_tasks(dag_name: &str) -> Value {
-    let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
-        .arg("tasks")
-        .output()
-        .expect("failed to run");
+static TASKS: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
 
-    let result_raw = String::from_utf8_lossy(&output.stdout);
-    serde_json::from_str(result_raw.as_ref()).unwrap()
+#[timed(duration(printer = "debug!"))]
+pub async fn _get_default_tasks(dag_name: &str) -> String {
+    let mut tasks = TASKS
+        .get_or_init(|| Arc::new(Mutex::new(HashMap::new())))
+        .lock()
+        .await;
+
+    if !tasks.contains_key(dag_name) {
+        let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+            .arg("tasks")
+            .output()
+            .await
+            .expect("failed to run");
+
+        // String::from_utf8_lossy(&output.stdout).to_string()
+
+        tasks.insert(
+            dag_name.to_owned(),
+            String::from_utf8_lossy(&output.stdout).to_string(),
+        );
+    }
+
+    tasks.get(dag_name).unwrap().to_string()
 }
+
+static HASHES: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
+
+#[timed(duration(printer = "debug!"))]
+pub async fn _get_hash(dag_name: &str) -> String {
+    let mut hashes = HASHES
+        .get_or_init(|| Arc::new(Mutex::new(HashMap::new())))
+        .lock()
+        .await;
+
+    if !hashes.contains_key(dag_name) {
+        let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+            .arg("hash")
+            .output()
+            .await
+            .expect("failed to run");
+        // String::from_utf8_lossy(&output.stdout).to_string()
+
+        hashes.insert(
+            dag_name.to_owned(),
+            String::from_utf8_lossy(&output.stdout).to_string(),
+        );
+    }
+
+    hashes.get(dag_name).unwrap().to_string()
+}
+
+// #[timed(duration(printer = "debug!"))]
+// pub async fn _get_default_tasks(dag_name: &str) -> Cow<str> {
+//     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+//         .arg("tasks")
+//         .output()
+//         .await
+//         .expect("failed to run");
+
+//     Cow::Owned(String::from_utf8_lossy(&output.stdout).to_string())
+// }
+
+// #[timed(duration(printer = "debug!"))]
+// pub async fn _get_hash(dag_name: &str) -> Cow<str> {
+//     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+//         .arg("hash")
+//         .output()
+//         .await
+//         .expect("failed to run");
+
+//     Cow::Owned(String::from_utf8_lossy(&output.stdout).to_string())
+// }
+
+static EDGES: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
+
+#[timed(duration(printer = "debug!"))]
+pub async fn _get_default_edges(dag_name: &str) -> String {
+    let mut edges = EDGES
+        .get_or_init(|| Arc::new(Mutex::new(HashMap::new())))
+        .lock()
+        .await;
+
+    if !edges.contains_key(dag_name) {
+        let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+            .arg("edges")
+            .output()
+            .await
+            .expect("failed to run");
+
+        edges.insert(
+            dag_name.to_owned(),
+            String::from_utf8_lossy(&output.stdout).to_string(),
+        );
+    }
+
+    edges.get(dag_name).unwrap().to_string()
+}
+
+// #[timed(duration(printer = "debug!"))]
+// pub async fn _get_default_edges(dag_name: &str) -> Cow<str> {
+//     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+//         .arg("edges")
+//         .output()
+//         .await
+//         .expect("failed to run");
+
+//     Cow::Owned(String::from_utf8_lossy(&output.stdout).to_string())
+// }
+
+static OPTIONS: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
+
+#[timed(duration(printer = "debug!"))]
+pub async fn _get_options(dag_name: &str) -> String {
+    let mut options = OPTIONS
+        .get_or_init(|| Arc::new(Mutex::new(HashMap::new())))
+        .lock()
+        .await;
+
+    if !options.contains_key(dag_name) {
+        let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+            .arg("options")
+            .output()
+            .await
+            .expect("failed to run");
+
+        options.insert(
+            dag_name.to_owned(),
+            String::from_utf8_lossy(&output.stdout).to_string(),
+        );
+    }
+
+    options.get(dag_name).unwrap().to_string()
+}
+
+// #[timed(duration(printer = "debug!"))]
+// pub async fn _get_options(dag_name: &str) -> Cow<str> {
+//     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+//         .arg("options")
+//         .output()
+//         .await
+//         .expect("failed to run");
+
+//     Cow::Owned(String::from_utf8_lossy(&output.stdout).to_string())
+// }
 
 #[timed(duration(printer = "debug!"))]
 pub fn _get_all_tasks(dag_name: &str, run_id: usize, pool: Pool<Postgres>) -> Vec<Task> {
@@ -69,28 +213,6 @@ pub fn _get_task_result(
 }
 
 #[timed(duration(printer = "debug!"))]
-pub fn _get_default_edges(dag_name: &str) -> Value {
-    let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
-        .arg("edges")
-        .output()
-        .expect("failed to run");
-
-    let result_raw = String::from_utf8_lossy(&output.stdout);
-    serde_json::from_str(result_raw.as_ref()).unwrap()
-}
-
-#[timed(duration(printer = "debug!"))]
-pub fn _get_options(dag_name: &str) -> Value {
-    let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
-        .arg("options")
-        .output()
-        .expect("failed to run");
-
-    let result_raw = String::from_utf8_lossy(&output.stdout);
-    serde_json::from_str(result_raw.as_ref()).unwrap()
-}
-
-#[timed(duration(printer = "debug!"))]
 pub fn _get_dags() -> Vec<String> {
     let paths: Vec<PathBuf> = match fs::read_dir(DAGS_DIR) {
         Err(e) if e.kind() == ErrorKind::NotFound => Vec::new(),
@@ -119,15 +241,11 @@ pub fn _get_dags() -> Vec<String> {
 }
 
 #[timed(duration(printer = "debug!"))]
-pub fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>, pool: Pool<Postgres>) {
-    let nodes: Vec<Task> = serde_json::from_value(_get_default_tasks(dag_name)).unwrap();
+pub async fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>, pool: Pool<Postgres>) {
+    let nodes: Vec<Task> = serde_json::from_str(&_get_default_tasks(dag_name).await).unwrap();
     let edges: HashSet<(usize, usize)> =
-        serde_json::from_value(_get_default_edges(dag_name)).unwrap();
-
-    let hash = hash_dag(
-        &serde_json::to_string(&nodes).unwrap(),
-        &edges.iter().collect::<Vec<&(usize, usize)>>(),
-    );
+        serde_json::from_str(&_get_default_edges(dag_name).await).unwrap();
+    let hash = _get_hash(dag_name).await;
 
     Db::new(dag_name, &nodes, &edges, pool.clone()).enqueue_run(dag_name, &hash, logical_date);
 }

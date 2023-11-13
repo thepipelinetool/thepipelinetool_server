@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use chrono::{DateTime, Utc};
 // use runner::local::hash_dag;
 use saffron::Cron;
@@ -7,9 +5,7 @@ use sqlx::{Pool, Postgres};
 // use task::task::Task;
 use thepipelinetool::prelude::*;
 
-use crate::{
-    _get_dags, _get_default_edges, _get_default_tasks, _get_options, _trigger_run, db::Db,
-};
+use crate::{_get_dags, _get_hash, _get_options, _trigger_run, db::Db};
 
 pub fn catchup(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
     let up_to: DateTime<Utc> = *up_to;
@@ -21,7 +17,8 @@ pub fn catchup(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
             let pool: Pool<Postgres> = pool.clone();
 
             tokio::spawn(async move {
-                let options: DagOptions = serde_json::from_value(_get_options(&dag_name)).unwrap();
+                let options: DagOptions =
+                    serde_json::from_str(&_get_options(&dag_name).await).unwrap();
                 if let Some(schedule) = &options.schedule {
                     match schedule.parse::<Cron>() {
                         Ok(cron) => {
@@ -48,15 +45,6 @@ pub fn catchup(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
                                     up_to
                                 },
                             );
-                            let nodes: Vec<Task> =
-                                serde_json::from_value(_get_default_tasks(&dag_name)).unwrap();
-                            let edges: HashSet<(usize, usize)> =
-                                serde_json::from_value(_get_default_edges(&dag_name)).unwrap();
-
-                            let hash = hash_dag(
-                                &serde_json::to_string(&nodes).unwrap(),
-                                &edges.iter().collect::<Vec<&(usize, usize)>>(),
-                            );
 
                             // remove take 10
                             'inner: for time in futures {
@@ -73,12 +61,16 @@ pub fn catchup(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
                                     }
                                 }
                                 // check if date is already in db
-
-                                if Db::contains_logical_date(&dag_name, &hash, time, pool.clone()) {
+                                if Db::contains_logical_date(
+                                    &dag_name,
+                                    &_get_hash(&dag_name).await,
+                                    time,
+                                    pool.clone(),
+                                ) {
                                     continue 'inner;
                                 }
 
-                                _trigger_run(&dag_name, time, pool.clone());
+                                _trigger_run(&dag_name, time, pool.clone()).await;
                                 println!("scheduling catchup {dag_name} {}", time.format("%F %R"));
                             }
                         }
