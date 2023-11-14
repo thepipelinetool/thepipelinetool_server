@@ -28,6 +28,11 @@ tower-http = { version = "0.4.4", features = [ "cors", "trace", "compression-gzi
 saffron = { git = "https://github.com/cloudflare/saffron.git" }
 chrono = { version = "0.4.31", features = [ "serde" ] }
 
+kube = { version = "0.87.1", features = ["runtime", "derive", "ws" ] }
+k8s-openapi = { version = "0.20.0", features = ["latest"] }
+futures = "0.3.17"
+anyhow = "1.0.44"
+
 [[bin]]
 name = "server"
 path = "bin/server.rs"
@@ -35,3 +40,7 @@ path = "bin/server.rs"
 [[bin]]
 name = "worker"
 path = "bin/worker.rs"
+
+[[bin]]
+name = "kube"
+path = "bin/kube.rs"

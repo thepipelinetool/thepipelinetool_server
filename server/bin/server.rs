@@ -172,8 +172,8 @@ async fn main() {
 
     let now = Utc::now();
 
-    catchup(&now, pool.clone());
-    scheduler(&now, pool.clone());
+    // catchup(&now, pool.clone());
+    // scheduler(&now, pool.clone());
 
     let app = Router::new()
         .route("/ping", get(ping))
