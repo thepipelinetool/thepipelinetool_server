@@ -50,7 +50,7 @@ async fn get_runs_with_tasks(
 
     for run_id in Db::get_runs(&dag_name, pool.clone()).await.iter() {
         let mut tasks = json!({});
-        for task in _get_all_tasks(&dag_name, *run_id, pool.clone()) {
+        for task in _get_all_tasks(*run_id, pool.clone()) {
             tasks[format!("{}_{}", task.function_name, task.id)] = json!(task);
         }
         res[run_id.to_string()] = tasks;
@@ -80,34 +80,40 @@ async fn get_default_task(Path((dag_name, task_id)): Path<(String, usize)>) -> J
     Json(json!(v.iter().filter(|t| t.id == task_id).next().unwrap()))
 }
 
-async fn get_all_tasks(
-    Path((dag_name, run_id)): Path<(String, usize)>,
-    State(pool): State<PgPool>,
-) -> Json<Value> {
-    json!(_get_all_tasks(&dag_name, run_id, pool)).into()
+async fn get_all_tasks(Path(run_id): Path<usize>, State(pool): State<PgPool>) -> Json<Value> {
+    json!(_get_all_tasks(run_id, pool)).into()
 }
 
 async fn get_task(
-    Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
+    Path((run_id, task_id)): Path<(usize, usize)>,
     State(pool): State<PgPool>,
 ) -> Json<Value> {
-    json!(_get_task(&dag_name, run_id, task_id, pool)).into()
+    json!(_get_task(run_id, task_id, pool)).into()
 }
 
 async fn get_task_status(
-    Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
+    Path((run_id, task_id)): Path<(usize, usize)>,
     State(pool): State<PgPool>,
 ) -> String {
-    from_utf8(&[_get_task_status(&dag_name, run_id, task_id, pool).as_u8()])
+    from_utf8(&[_get_task_status(run_id, task_id, pool).as_u8()])
         .unwrap()
         .to_owned()
 }
 
 async fn get_task_result(
-    Path((dag_name, run_id, task_id)): Path<(String, usize, usize)>,
+    Path((run_id, task_id)): Path<(usize, usize)>,
     State(pool): State<PgPool>,
 ) -> Json<Value> {
-    json!(_get_task_result(&dag_name, run_id, task_id, pool)).into()
+    json!(_get_task_result(run_id, task_id, pool)).into()
+}
+
+async fn get_task_log(
+    Path((run_id, task_id, attempt)): Path<(usize, usize, usize)>,
+    State(pool): State<PgPool>,
+) -> String {
+    let mut runner = Db::new(&"", &[], &HashSet::new(), pool);
+    runner.get_log(&run_id, &task_id, attempt)
+    // json!(_get_task_result(run_id, task_id, pool)).into()
 }
 
 async fn get_dags() -> Json<Value> {
@@ -120,16 +126,13 @@ async fn get_dags() -> Json<Value> {
         res.push(o);
     }
 
-    dbg!(&res);
+    // dbg!(&res);
 
     json!(res).into()
 }
 
-async fn get_run_graph(
-    Path((dag_name, run_id)): Path<(String, usize)>,
-    State(pool): State<PgPool>,
-) -> Json<Value> {
-    let mut runner = Db::new(&dag_name, &[], &HashSet::new(), pool);
+async fn get_run_graph(Path(run_id): Path<usize>, State(pool): State<PgPool>) -> Json<Value> {
+    let mut runner = Db::new(&"", &[], &HashSet::new(), pool);
     let graph = runner.get_graphite_graph(&run_id);
     json!(graph).into()
 }
@@ -186,19 +189,19 @@ async fn main() {
         .route("/trigger/:dag_name", get(trigger))
         //
         .route(
-            "/task_status/:dag_name/:run_id/:task_id",
+            "/task_status/:run_id/:task_id",
             get(get_task_status),
         )
         .route(
-            "/task_result/:dag_name/:run_id/:task_id",
+            "/task_result/:run_id/:task_id",
             get(get_task_result),
         )
-        .route("/tasks/:dag_name/:run_id", get(get_all_tasks))
-        .route("/task/:dag_name/:run_id/:task_id", get(get_task))
+        .route("/log/:run_id/:task_id/:attempt", get(get_task_log))
+        .route("/tasks/:run_id", get(get_all_tasks))
+        .route("/task/:run_id/:task_id", get(get_task))
         .route("/default_tasks/:dag_name", get(get_default_tasks))
         .route("/default_task/:dag_name/:task_id", get(get_default_task))
-
-        .route("/graph/:dag_name/:run_id", get(get_run_graph))
+        .route("/graph/:run_id", get(get_run_graph))
         .route("/default_graph/:dag_name", get(get_default_graph))
         .layer(
             CorsLayer::new()

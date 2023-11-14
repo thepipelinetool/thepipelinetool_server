@@ -177,38 +177,36 @@ pub async fn _get_options(dag_name: &str) -> String {
 // }
 
 #[timed(duration(printer = "debug!"))]
-pub fn _get_all_tasks(dag_name: &str, run_id: usize, pool: Pool<Postgres>) -> Vec<Task> {
-    let runner = Db::new(dag_name, &[], &HashSet::new(), pool);
+pub fn _get_all_tasks(run_id: usize, pool: Pool<Postgres>) -> Vec<Task> {
+    let runner = Db::new("", &[], &HashSet::new(), pool);
     runner.get_all_tasks(&run_id)
 }
 
 #[timed(duration(printer = "debug!"))]
-pub fn _get_task(dag_name: &str, run_id: usize, task_id: usize, pool: Pool<Postgres>) -> Task {
-    let runner = Db::new(dag_name, &[], &HashSet::new(), pool);
+pub fn _get_task(run_id: usize, task_id: usize, pool: Pool<Postgres>) -> Task {
+    let runner = Db::new("", &[], &HashSet::new(), pool);
     runner.get_task_by_id(&run_id, &task_id)
 }
 
 #[timed(duration(printer = "debug!"))]
 pub fn _get_task_status(
-    dag_name: &str,
     run_id: usize,
     task_id: usize,
     pool: Pool<Postgres>,
     // redis: Connection
 ) -> TaskStatus {
-    let mut runner = Db::new(dag_name, &[], &HashSet::new(), pool);
+    let mut runner = Db::new("", &[], &HashSet::new(), pool);
     runner.get_task_status(&run_id, &task_id)
 }
 
 #[timed(duration(printer = "debug!"))]
 pub fn _get_task_result(
-    dag_name: &str,
     run_id: usize,
     task_id: usize,
     pool: Pool<Postgres>,
     // redis: Connection
 ) -> TaskResult {
-    let mut runner = Db::new(dag_name, &[], &HashSet::new(), pool);
+    let mut runner = Db::new("", &[], &HashSet::new(), pool);
     runner.get_task_result(&run_id, &task_id)
 }
 
