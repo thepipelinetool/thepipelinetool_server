@@ -60,36 +60,104 @@ impl Db {
         }
     }
 
+    pub async fn get_all_results(
+        run_id: usize,
+        task_id: usize,
+        pool: Pool<Postgres>,
+    ) -> Vec<TaskResult> {
+        // tokio::task::block_in_place(|| {
+        //     tokio::runtime::Handle::current().block_on(async {
+        //         //
+
+        //         let tasks = self.get_
+        //     })
+        // })
+
+        //    let db =  Db::new(&"", &[], &HashSet::new(), pool);
+
+        //    db.get_a
+
+        //    todo!()
+
+        let rows = sqlx::query(
+            "
+            SELECT *
+            FROM task_results
+            WHERE run_id = $1 AND task_id = $2
+            ORDER BY timestamp DESC;                    
+            ",
+        )
+        .bind(run_id as i32)
+        .bind(task_id as i32)
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+        // let id: i32 = task.get("task_id");
+        // let name: String = task.get("name");
+        // let function_name: String = task.get("function_name");
+        // let template_args: Value =
+        //     serde_json::from_value(task.get("template_args")).unwrap();
+        // let options: TaskOptions = serde_json::from_value(task.get("options")).unwrap();
+        // let lazy_expand: bool = task.get("lazy_expand");
+        // let is_dynamic: bool = task.get("is_dynamic");
+
+        let mut results = vec![];
+        for row in rows {
+            results.push(TaskResult {
+                task_id: row.get::<i32, _>("task_id") as usize,
+                result: serde_json::from_value(row.get("result")).unwrap(),
+                // task_name: task.get("task_name"),
+                attempt: row.get::<i32, _>("attempt") as usize,
+                max_attempts: row.get::<i32, _>("max_attempts") as isize,
+                function_name: row.get("function_name"),
+                success: row.get("success"),
+                // stdout: task.get("stdout"),
+                // stderr: task.get("stderr"),
+                // template_args_str: task.get("template_args_str"),
+                resolved_args_str: row.get("resolved_args_str"),
+                started: row.get("started"),
+                ended: row.get("ended"),
+                elapsed: row.get::<i32, _>("elapsed") as i64,
+                premature_failure: row.get("premature_failure"),
+                premature_failure_error_str: row.get("premature_failure_error_str"),
+                is_branch: row.get("is_branch"),
+            });
+        }
+        results
+    }
+
     // #[timed(duration(printer = "debug!"))]
     pub async fn get_runs(dag_name: &str, pool: Pool<Postgres>) -> Vec<Run> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                //
+        // tokio::task::block_in_place(|| {
+        //     tokio::runtime::Handle::current().block_on(async {
+        //
 
-                let rows = sqlx::query(
-                    "SELECT run_id, logical_date, timestamp FROM runs WHERE dag_name = $1",
-                )
+        let rows =
+            sqlx::query("SELECT run_id, logical_date, timestamp FROM runs WHERE dag_name = $1")
                 .bind(dag_name)
                 .fetch_all(&pool)
                 .await
                 .unwrap();
 
-                let mut v = vec![];
-                for row in rows {
-                    // let mut value = json!({});
+        let mut v = vec![];
+        for row in rows {
+            // let mut value = json!({});
 
-                    let run_id: i32 = row.get(0);
-                    // value["run_id"] = run_id.to_string().into();
+            let run_id: i32 = row.get(0);
+            // value["run_id"] = run_id.to_string().into();
 
-                    let date: DateTime<Utc> = row.get(1);
-                    // value["date"] = date.to_string().into();
+            let date: DateTime<Utc> = row.get(1);
+            // value["date"] = date.to_string().into();
 
-                    v.push(Run { run_id: run_id as usize, date });
-                }
+            v.push(Run {
+                run_id: run_id as usize,
+                date,
+            });
+        }
 
-                v
-            })
-        })
+        v
+        //     })
+        // })
     }
 
     // pub async fn get_incomplete_tasks() {
@@ -102,31 +170,30 @@ impl Db {
     //     })
     // }
     #[timed(duration(printer = "debug!"))]
-    pub async fn get_all_runs(dag_name: &str, pool: Pool<Postgres>) -> Vec<(usize, String)> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                // TODO get only incomplete
-                let rows = sqlx::query(
-                    "SELECT run_id, dag_id FROM runs WHERE dag_name = $1 AND status = $2",
-                )
+    pub async fn get_pending_runs(dag_name: &str, pool: Pool<Postgres>) -> Vec<(usize, String)> {
+        // tokio::task::block_in_place(|| {
+        //     tokio::runtime::Handle::current().block_on(async {
+        // TODO get only incomplete
+        let rows =
+            sqlx::query("SELECT run_id, dag_id FROM runs WHERE dag_name = $1 AND status = $2")
                 .bind(dag_name)
                 .bind("Pending")
                 .fetch_all(&pool)
                 .await
                 .unwrap();
 
-                let mut downstream_tasks = Vec::new();
+        let mut downstream_tasks = Vec::new();
 
-                for row in rows {
-                    let downstream_task_id: i32 = row.get(0);
-                    let downstream_task_id1: String = row.get(1);
-                    downstream_tasks.push((downstream_task_id as usize, downstream_task_id1));
-                }
+        for row in rows {
+            let downstream_task_id: i32 = row.get(0);
+            let downstream_task_id1: String = row.get(1);
+            downstream_tasks.push((downstream_task_id as usize, downstream_task_id1));
+        }
 
-                downstream_tasks
-                // Db::get_runs(dag_name)
-            })
-        })
+        downstream_tasks
+        // Db::get_runs(dag_name)
+        //     })
+        // })
     }
 
     #[timed(duration(printer = "debug!"))]
@@ -260,16 +327,16 @@ impl Db {
     }
 
     #[timed(duration(printer = "debug!"))]
-    pub fn contains_logical_date(
+    pub async fn contains_logical_date(
         dag_name: &str,
         dag_hash: &str,
         logical_date: DateTime<Utc>,
         pool: Pool<Postgres>,
     ) -> bool {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                // 
-                let task = sqlx::query(
+        // tokio::task::block_in_place(|| {
+        //     tokio::runtime::Handle::current().block_on(async {
+        //
+        let task = sqlx::query(
                     "SELECT EXISTS(SELECT 1 FROM runs WHERE dag_id = $1 AND dag_name = $2 AND logical_date = $3 )",
                 )
                 .bind(dag_hash)
@@ -277,15 +344,13 @@ impl Db {
                 .bind(logical_date)
                 .fetch_one(&pool)
                 .await;
-                task.unwrap().get(0)
-            })
-        })
+        task.unwrap().get(0)
+        //     })
+        // })
     }
-
 }
 
 impl Runner for Db {
-
     #[timed(duration(printer = "debug!"))]
     fn get_log(
         &mut self,

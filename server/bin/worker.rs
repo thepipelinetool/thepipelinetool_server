@@ -39,7 +39,7 @@ async fn main() {
     }
     loop {
         for dag_name in dags {
-            let all_runs = Db::get_all_runs(dag_name, pool.clone()).await;
+            let all_runs = Db::get_pending_runs(dag_name, pool.clone()).await;
 
             for (run_id, dag_id) in all_runs {
                 // dbg!(run_id, &dag_id);

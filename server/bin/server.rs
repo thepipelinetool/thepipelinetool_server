@@ -18,7 +18,7 @@ use server::{
     _get_task_result, _get_task_status, _trigger_run, catchup::catchup, db::Db,
     scheduler::scheduler,
 };
-use server::{_get_hash, get_client};
+use server::{_get_hash, get_client, _get_all_task_results};
 use sqlx::PgPool;
 use thepipelinetool::prelude::*;
 use tower_http::compression::CompressionLayer;
@@ -100,6 +100,13 @@ async fn get_task(
     State(pool): State<PgPool>,
 ) -> Json<Value> {
     json!(_get_task(run_id, task_id, pool)).into()
+}
+
+async fn get_all_task_results(
+    Path((run_id, task_id)): Path<(usize, usize)>,
+    State(pool): State<PgPool>,
+) -> Json<Value> {
+    json!(_get_all_task_results(run_id, task_id, pool).await).into()
 }
 
 async fn get_task_status(
@@ -203,6 +210,8 @@ async fn main() {
         .route("/task_result/:run_id/:task_id", get(get_task_result))
         .route("/log/:run_id/:task_id/:attempt", get(get_task_log))
         .route("/tasks/:run_id", get(get_all_tasks))
+        .route("/task_results/:run_id/:task_id", get(get_all_task_results))
+
         .route("/task/:run_id/:task_id", get(get_task))
         .route("/default_tasks/:dag_name", get(get_default_tasks))
         .route("/default_task/:dag_name/:task_id", get(get_default_task))

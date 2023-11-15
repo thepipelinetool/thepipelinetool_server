@@ -12,7 +12,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use db::Db;
+use db::{Db, Run};
 use log::{debug, LevelFilter};
 use redis::Connection;
 use sqlx::{
@@ -186,6 +186,13 @@ pub fn _get_all_tasks(run_id: usize, pool: Pool<Postgres>) -> Vec<Task> {
 pub fn _get_task(run_id: usize, task_id: usize, pool: Pool<Postgres>) -> Task {
     let runner = Db::new("", &[], &HashSet::new(), pool);
     runner.get_task_by_id(&run_id, &task_id)
+}
+
+// #[timed(duration(printer = "debug!"))]
+pub async fn _get_all_task_results(run_id: usize, task_id: usize, pool: Pool<Postgres>) -> Vec<TaskResult> {
+    // let runner = Db::new("", &[], &HashSet::new(), pool);
+    Db::get_all_results(run_id, task_id, pool).await
+    // todo!()
 }
 
 #[timed(duration(printer = "debug!"))]

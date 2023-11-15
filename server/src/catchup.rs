@@ -66,7 +66,7 @@ pub fn catchup(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
                                     &_get_hash(&dag_name).await,
                                     time,
                                     pool.clone(),
-                                ) {
+                                ).await {
                                     continue 'inner;
                                 }
 
