@@ -35,6 +35,12 @@ use crate::get_redis_client;
 // use task::task_status::TaskStatus;
 // use thepipelinetool::prelude::*;
 
+// #[derive(Serialize)]
+pub struct Run {
+    pub run_id: usize,
+    pub date: DateTime<Utc>,
+}
+
 impl Db {
     #[timed(duration(printer = "debug!"))]
     pub fn new(
@@ -54,26 +60,34 @@ impl Db {
         }
     }
 
-    #[timed(duration(printer = "debug!"))]
-    pub async fn get_runs(dag_name: &str, pool: Pool<Postgres>) -> Vec<usize> {
+    // #[timed(duration(printer = "debug!"))]
+    pub async fn get_runs(dag_name: &str, pool: Pool<Postgres>) -> Vec<Run> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 //
 
-                let rows = sqlx::query("SELECT run_id FROM runs WHERE dag_name = $1")
-                    .bind(dag_name)
-                    .fetch_all(&pool)
-                    .await
-                    .unwrap();
+                let rows = sqlx::query(
+                    "SELECT run_id, logical_date, timestamp FROM runs WHERE dag_name = $1",
+                )
+                .bind(dag_name)
+                .fetch_all(&pool)
+                .await
+                .unwrap();
 
-                let mut downstream_tasks = Vec::new();
-
+                let mut v = vec![];
                 for row in rows {
-                    let downstream_task_id: i32 = row.get(0);
-                    downstream_tasks.push(downstream_task_id as usize);
+                    // let mut value = json!({});
+
+                    let run_id: i32 = row.get(0);
+                    // value["run_id"] = run_id.to_string().into();
+
+                    let date: DateTime<Utc> = row.get(1);
+                    // value["date"] = date.to_string().into();
+
+                    v.push(Run { run_id: run_id as usize, date });
                 }
 
-                downstream_tasks
+                v
             })
         })
     }
@@ -271,15 +285,17 @@ impl Db {
         })
     }
 
-
     #[timed(duration(printer = "debug!"))]
-    pub fn get_log(&mut self,
-        dag_run_id: &usize, task_id: &usize, attempt: usize,
+    pub fn get_log(
+        &mut self,
+        dag_run_id: &usize,
+        task_id: &usize,
+        attempt: usize,
         // pool: Pool<Postgres>,
     ) -> String {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                // 
+                //
                 let task = sqlx::query(
                     "SELECT log FROM logs WHERE run_id = $1 AND task_id = $2 AND attempt = $3",
                 )
@@ -343,20 +359,20 @@ impl Runner for Db {
             // }
             // let redis = get_redis_client();
             // tokio::task::block_in_place(|| {
-                tokio::runtime::Runtime::new().unwrap().block_on(async {
-                    sqlx::query(
-                        "UPDATE logs
+            tokio::runtime::Runtime::new().unwrap().block_on(async {
+                sqlx::query(
+                    "UPDATE logs
                     SET log = log || $4
                     WHERE run_id = $1 AND task_id = $2 AND attempt = $3",
-                    )
-                    .bind(dag_run_id as i32)
-                    .bind(task_id as i32)
-                    .bind(attempt as i32)
-                    .bind(s)
-                    .execute(&pool)
-                    .await
-                    .unwrap();
-                });
+                )
+                .bind(dag_run_id as i32)
+                .bind(task_id as i32)
+                .bind(attempt as i32)
+                .bind(s)
+                .execute(&pool)
+                .await
+                .unwrap();
+            });
             // });
         })
     }

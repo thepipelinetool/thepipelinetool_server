@@ -38,7 +38,15 @@ async fn ping() -> &'static str {
 
 #[timed(duration(printer = "debug!"))]
 async fn get_runs(Path(dag_name): Path<String>, State(pool): State<PgPool>) -> Json<Value> {
-    json!(Db::get_runs(&dag_name, pool).await).into()
+    json!(Db::get_runs(&dag_name, pool)
+        .await
+        .iter()
+        .map(|r| json!({
+            "run_id": r.run_id.to_string(),
+            "date": r.date,
+        }))
+        .collect::<Vec<Value>>())
+    .into()
 }
 
 // TODO return only statuses?
@@ -48,12 +56,15 @@ async fn get_runs_with_tasks(
 ) -> Json<Value> {
     let mut res = json!({});
 
-    for run_id in Db::get_runs(&dag_name, pool.clone()).await.iter() {
+    for run in Db::get_runs(&dag_name, pool.clone()).await.iter() {
         let mut tasks = json!({});
-        for task in _get_all_tasks(*run_id, pool.clone()) {
+        for task in _get_all_tasks(run.run_id, pool.clone()) {
             tasks[format!("{}_{}", task.function_name, task.id)] = json!(task);
         }
-        res[run_id.to_string()] = tasks;
+        res[run.run_id.to_string()] = json!({
+            "date": run.date,
+            "tasks": tasks,
+        });
     }
     res.into()
     // json!(Db::get_runs(&dag_name)
@@ -188,14 +199,8 @@ async fn main() {
         .route("/runs_with_tasks/:dag_name", get(get_runs_with_tasks))
         .route("/trigger/:dag_name", get(trigger))
         //
-        .route(
-            "/task_status/:run_id/:task_id",
-            get(get_task_status),
-        )
-        .route(
-            "/task_result/:run_id/:task_id",
-            get(get_task_result),
-        )
+        .route("/task_status/:run_id/:task_id", get(get_task_status))
+        .route("/task_result/:run_id/:task_id", get(get_task_result))
         .route("/log/:run_id/:task_id/:attempt", get(get_task_log))
         .route("/tasks/:run_id", get(get_all_tasks))
         .route("/task/:run_id/:task_id", get(get_task))
