@@ -189,9 +189,6 @@ impl Db {
                 max_attempts    INT NOT NULL,
                 function_name   TEXT NOT NULL,
                 success         BOOL NOT NULL,
-                stdout          TEXT NOT NULL,
-                stderr          TEXT NOT NULL,
-                template_args_str   TEXT NOT NULL,
                 resolved_args_str   TEXT NOT NULL,
                 started             TEXT NOT NULL,
                 ended               TEXT NOT NULL,
@@ -285,8 +282,12 @@ impl Db {
         })
     }
 
+}
+
+impl Runner for Db {
+
     #[timed(duration(printer = "debug!"))]
-    pub fn get_log(
+    fn get_log(
         &mut self,
         dag_run_id: &usize,
         task_id: &usize,
@@ -308,9 +309,7 @@ impl Db {
             })
         })
     }
-}
 
-impl Runner for Db {
     fn init_log(&mut self, dag_run_id: &usize, task_id: &usize, attempt: usize) {
         // let task_logs = self.task_logs.clone();
         let task_id = *task_id;
@@ -483,9 +482,9 @@ impl Runner for Db {
                         max_attempts: task.get::<i32, _>("max_attempts") as isize,
                         function_name: task.get("function_name"),
                         success: task.get("success"),
-                        stdout: task.get("stdout"),
-                        stderr: task.get("stderr"),
-                        template_args_str: task.get("template_args_str"),
+                        // stdout: task.get("stdout"),
+                        // stderr: task.get("stderr"),
+                        // template_args_str: task.get("template_args_str"),
                         resolved_args_str: task.get("resolved_args_str"),
                         started: task.get("started"),
                         ended: task.get("ended"),
@@ -697,11 +696,10 @@ impl Runner for Db {
                     "
                     INSERT INTO task_results (
                         run_id, task_id, result, attempt, max_attempts, 
-                        function_name, success, stdout, stderr, template_args_str, 
-                        resolved_args_str, started, ended, elapsed, 
+                        function_name, success, resolved_args_str, started, ended, elapsed, 
                         premature_failure, premature_failure_error_str, is_branch
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
                     ",
                 )
                 .bind(*dag_run_id as i32)
@@ -712,9 +710,9 @@ impl Runner for Db {
                 .bind(result.max_attempts as i32)
                 .bind(&result.function_name)
                 .bind(result.success)
-                .bind(&result.stdout)
-                .bind(&result.stderr)
-                .bind(&result.template_args_str)
+                // .bind(&result.stdout)
+                // .bind(&result.stderr)
+                // .bind(&result.template_args_str)
                 .bind(&result.resolved_args_str)
                 .bind(&result.started)
                 .bind(&result.ended)
