@@ -1,20 +1,21 @@
 use chrono::{DateTime, Utc};
+use deadpool_redis::Pool;
 // use runner::local::hash_dag;
 use saffron::Cron;
-use sqlx::{Pool, Postgres};
+// use sqlx::{Pool, Postgres};
 // use task::task::Task;
 use thepipelinetool::prelude::*;
 
 use crate::{_get_dags, _get_hash, _get_options, _trigger_run, db::Db};
 
-pub fn catchup(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
+pub fn catchup(up_to: &DateTime<Utc>, pool: Pool) {
     let up_to: DateTime<Utc> = *up_to;
     // let up_to = up_to.clone();
     tokio::spawn(async move {
         let dags = _get_dags();
 
         for dag_name in dags {
-            let pool: Pool<Postgres> = pool.clone();
+            let pool = pool.clone();
 
             tokio::spawn(async move {
                 let options: DagOptions =

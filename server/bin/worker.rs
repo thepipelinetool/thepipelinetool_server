@@ -1,12 +1,12 @@
 use std::{
     collections::{HashMap, HashSet},
-    time::Duration,
+    time::Duration, sync::{Arc, Mutex},
 };
 
 // use thepipelinetool::prelude::*;
 
 // use runner::{local::hash_dag, DefRunner, Runner};
-use server::{_get_dags, _get_default_edges, _get_default_tasks, _get_hash, db::Db, get_client};
+use server::{_get_dags, _get_default_edges, _get_default_tasks, _get_hash, db::Db, get_redis_pool};
 use thepipelinetool::prelude::*;
 use tokio::time::sleep;
 
@@ -19,7 +19,8 @@ async fn main() {
     let mut node_hashmap: HashMap<String, Vec<Task>> = HashMap::new();
     let mut edges_hashmap: HashMap<String, HashSet<(usize, usize)>> = HashMap::new();
     let mut hash_hashmap: HashMap<String, String> = HashMap::new();
-    let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
+    // let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
+    let pool = get_redis_pool();
     let dags = &_get_dags();
 
     for dag_name in dags {
@@ -37,28 +38,29 @@ async fn main() {
         edges_hashmap.insert(dag_name.clone(), edges);
         // }
     }
-    loop {
-        for dag_name in dags {
-            let all_runs = Db::get_pending_runs(dag_name, pool.clone()).await;
+    todo!();
+    // loop {
+    //     for dag_name in dags {
+    //         let all_runs = Db::get_pending_runs(dag_name, pool.clone()).await;
 
-            for (run_id, dag_id) in all_runs {
-                // dbg!(run_id, &dag_id);
-                let nodes = node_hashmap.get(dag_name).unwrap();
-                // .or_insert(serde_json::from_value(_get_default_tasks(&dag_name)).unwrap())
-                // .to_vec();
-                let edges: &HashSet<(usize, usize)> = edges_hashmap.get(dag_name).unwrap();
+    //         for (run_id, dag_id) in all_runs {
+    //             // dbg!(run_id, &dag_id);
+    //             let nodes = node_hashmap.get(dag_name).unwrap();
+    //             // .or_insert(serde_json::from_value(_get_default_tasks(&dag_name)).unwrap())
+    //             // .to_vec();
+    //             let edges: &HashSet<(usize, usize)> = edges_hashmap.get(dag_name).unwrap();
 
-                let hash = hash_hashmap.get(dag_name).unwrap();
+    //             let hash = hash_hashmap.get(dag_name).unwrap();
 
-                // dbg!(run_id, &dag_id, format!("{DAGS_DIR}/{dag_name}"));
+    //             // dbg!(run_id, &dag_id, format!("{DAGS_DIR}/{dag_name}"));
 
-                // TODO read max_threads from env
-                if &dag_id == hash {
-                    Db::new(dag_name, nodes, edges, pool.clone()).run(&run_id, 9);
-                }
-            }
-        }
+    //             // TODO read max_threads from env
+    //             if &dag_id == hash {
+    //                 Db::new(dag_name, nodes, edges, pool.clone()).run(&run_id, 9, Arc::new(Mutex::new(0)));
+    //             }
+    //         }
+    //     }
 
-        sleep(Duration::new(5, 0)).await;
-    }
+    //     sleep(Duration::new(5, 0)).await;
+    // }
 }

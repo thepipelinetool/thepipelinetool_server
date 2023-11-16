@@ -5,15 +5,16 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use sqlx::{Pool, Postgres};
+// use sqlx::{Pool, Postgres};
 
+use deadpool_redis::Pool;
 use saffron::Cron;
 use thepipelinetool::prelude::DagOptions;
 use tokio::time::sleep;
 
 use crate::{_get_dags, _get_hash, _get_options, _trigger_run, db::Db};
 
-pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
+pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool) {
     let up_to_initial = *up_to;
 
     let last_checked: Arc<Mutex<HashMap<String, DateTime<Utc>>>> =
@@ -26,7 +27,7 @@ pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool<Postgres>) {
 
             for dag_name in dags {
                 let last_checked = last_checked.clone();
-                let pool: Pool<Postgres> = pool.clone();
+                let pool = pool.clone();
 
                 tokio::spawn(async move {
                     let options: DagOptions =

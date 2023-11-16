@@ -13,12 +13,14 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use db::{Db, Run};
+use deadpool::Runtime;
+use deadpool_redis::{Config, Manager, Connection, Pool};
 use log::{debug, LevelFilter};
-use redis::Connection;
-use sqlx::{
-    postgres::{PgConnectOptions, PgPoolOptions},
-    ConnectOptions, Pool, Postgres,
-};
+// use redis::Connection;
+// use sqlx::{
+//     postgres::{PgConnectOptions, PgPoolOptions},
+//     ConnectOptions, Pool, Postgres,
+// };
 use thepipelinetool::prelude::*;
 use timed::timed;
 use tokio::{process::Command, sync::Mutex};
@@ -177,19 +179,25 @@ pub async fn _get_options(dag_name: &str) -> String {
 // }
 
 #[timed(duration(printer = "debug!"))]
-pub fn _get_all_tasks(run_id: usize, pool: Pool<Postgres>) -> Vec<Task> {
+pub fn _get_all_tasks(run_id: usize
+    , pool: Pool
+) -> Vec<Task> {
     let runner = Db::new("", &[], &HashSet::new(), pool);
     runner.get_all_tasks(&run_id)
 }
 
 #[timed(duration(printer = "debug!"))]
-pub fn _get_task(run_id: usize, task_id: usize, pool: Pool<Postgres>) -> Task {
+pub fn _get_task(run_id: usize, task_id: usize,
+    pool: Pool
+    ) -> Task {
     let runner = Db::new("", &[], &HashSet::new(), pool);
     runner.get_task_by_id(&run_id, &task_id)
 }
 
 // #[timed(duration(printer = "debug!"))]
-pub async fn _get_all_task_results(run_id: usize, task_id: usize, pool: Pool<Postgres>) -> Vec<TaskResult> {
+pub async fn _get_all_task_results(run_id: usize, task_id: usize,
+    pool: Pool
+    ) -> Vec<TaskResult> {
     // let runner = Db::new("", &[], &HashSet::new(), pool);
     Db::get_all_results(run_id, task_id, pool).await
     // todo!()
@@ -199,7 +207,7 @@ pub async fn _get_all_task_results(run_id: usize, task_id: usize, pool: Pool<Pos
 pub fn _get_task_status(
     run_id: usize,
     task_id: usize,
-    pool: Pool<Postgres>,
+    pool: Pool,
     // redis: Connection
 ) -> TaskStatus {
     let mut runner = Db::new("", &[], &HashSet::new(), pool);
@@ -210,7 +218,7 @@ pub fn _get_task_status(
 pub fn _get_task_result(
     run_id: usize,
     task_id: usize,
-    pool: Pool<Postgres>,
+    pool: Pool,
     // redis: Connection
 ) -> TaskResult {
     let mut runner = Db::new("", &[], &HashSet::new(), pool);
@@ -246,7 +254,9 @@ pub fn _get_dags() -> Vec<String> {
 }
 
 #[timed(duration(printer = "debug!"))]
-pub async fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>, pool: Pool<Postgres>) {
+pub async fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>,
+    pool: Pool
+    ) {
     let nodes: Vec<Task> = serde_json::from_str(&_get_default_tasks(dag_name).await).unwrap();
     let edges: HashSet<(usize, usize)> =
         serde_json::from_str(&_get_default_edges(dag_name).await).unwrap();
@@ -255,25 +265,25 @@ pub async fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>, pool: Poo
     Db::new(dag_name, &nodes, &edges, pool.clone()).enqueue_run(dag_name, &hash, logical_date);
 }
 
-fn get_db_url() -> String {
-    env::var("POSTGRES_URL")
-        .unwrap_or("postgres://postgres:example@0.0.0.0:5432".to_string())
-        .to_string()
-}
+// fn get_db_url() -> String {
+//     env::var("POSTGRES_URL")
+//         .unwrap_or("postgres://postgres:example@0.0.0.0:5432".to_string())
+//         .to_string()
+// }
 
-#[timed(duration(printer = "debug!"))]
-pub async fn get_client() -> Pool<Postgres> {
-    let options = PgConnectOptions::from_str(&get_db_url())
-        .unwrap()
-        // .log_statements(LevelFilter::Debug);
-        .log_slow_statements(LevelFilter::Debug, Duration::new(0, 500_000_000));
+// #[timed(duration(printer = "debug!"))]
+// pub async fn get_client() -> Pool<Postgres> {
+//     let options = PgConnectOptions::from_str(&get_db_url())
+//         .unwrap()
+//         // .log_statements(LevelFilter::Debug);
+//         .log_slow_statements(LevelFilter::Debug, Duration::new(0, 500_000_000));
 
-    PgPoolOptions::new()
-        // .max_connections(max)
-        .connect_with(options)
-        .await
-        .unwrap()
-}
+//     PgPoolOptions::new()
+//         // .max_connections(max)
+//         .connect_with(options)
+//         .await
+//         .unwrap()
+// }
 
 fn get_redis_url() -> String {
     env::var("REDIS_URL")
@@ -281,8 +291,11 @@ fn get_redis_url() -> String {
         .to_string()
 }
 
-#[timed(duration(printer = "debug!"))]
-pub fn get_redis_client() -> Connection {
-    let client = redis::Client::open(get_redis_url()).unwrap();
-    client.get_connection().unwrap()
+// #[timed(duration(printer = "debug!"))]
+pub fn get_redis_pool() -> Pool {
+
+    let mut cfg = Config::from_url(env::var("REDIS__URL").unwrap());
+    cfg.create_pool(Some(Runtime::Tokio1)).unwrap()
+    // let client = redis::Client::open(get_redis_url()).unwrap();
+    // client.get_connection().unwrap()
 }
