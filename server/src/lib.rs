@@ -270,6 +270,7 @@ pub async fn get_client() -> Pool<Postgres> {
 
     PgPoolOptions::new()
         // .max_connections(max)
+        .max_connections(9)
         .connect_with(options)
         .await
         .unwrap()

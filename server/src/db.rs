@@ -359,49 +359,54 @@ impl Runner for Db {
         attempt: usize,
         // pool: Pool<Postgres>,
     ) -> String {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                //
-                let task = sqlx::query(
-                    "SELECT log FROM logs WHERE run_id = $1 AND task_id = $2 AND attempt = $3",
-                )
-                .bind(*dag_run_id as i32)
-                .bind(*task_id as i32)
-                .bind(attempt as i32)
-                .fetch_one(&self.pool)
-                .await;
-                task.unwrap().get(0)
-            })
-        })
+        let key = format!("task_log:{dag_run_id}:{task_id}:{attempt}");
+
+        self.redis.get(&key).unwrap_or("".into())
+
+
+        // tokio::task::block_in_place(|| {
+        //     tokio::runtime::Handle::current().block_on(async {
+        //         //
+        //         let task = sqlx::query(
+        //             "SELECT log FROM logs WHERE run_id = $1 AND task_id = $2 AND attempt = $3",
+        //         )
+        //         .bind(*dag_run_id as i32)
+        //         .bind(*task_id as i32)
+        //         .bind(attempt as i32)
+        //         .fetch_one(&self.pool)
+        //         .await;
+        //         task.unwrap().get(0)
+        //     })
+        // })
     }
 
-    fn init_log(&mut self, dag_run_id: &usize, task_id: &usize, attempt: usize) {
-        // let task_logs = self.task_logs.clone();
-        let task_id = *task_id;
+    // fn init_log(&mut self, dag_run_id: &usize, task_id: &usize, attempt: usize) {
+    //     // let task_logs = self.task_logs.clone();
+    //     let task_id = *task_id;
 
-        // let mut task_logs = task_logs.lock().unwrap();
-        // if !task_logs.contains_key(&task_id) {
-        //     task_logs.insert(task_id, s);
-        // } else {
-        //     *task_logs.get_mut(&task_id).unwrap() += &s;
-        // }
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                sqlx::query(
-                    "INSERT INTO logs (run_id, task_id, attempt, log)
-                    VALUES ($1, $2, $3, $4);",
-                )
-                .bind(*dag_run_id as i32)
-                .bind(task_id as i32)
-                .bind(attempt as i32)
-                .bind("")
-                // .bind(v)
-                .execute(&self.pool)
-                .await
-                .unwrap();
-            })
-        });
-    }
+    //     // let mut task_logs = task_logs.lock().unwrap();
+    //     // if !task_logs.contains_key(&task_id) {
+    //     //     task_logs.insert(task_id, s);
+    //     // } else {
+    //     //     *task_logs.get_mut(&task_id).unwrap() += &s;
+    //     // }
+    //     tokio::task::block_in_place(|| {
+    //         tokio::runtime::Handle::current().block_on(async {
+    //             sqlx::query(
+    //                 "INSERT INTO logs (run_id, task_id, attempt, log)
+    //                 VALUES ($1, $2, $3, $4);",
+    //             )
+    //             .bind(*dag_run_id as i32)
+    //             .bind(task_id as i32)
+    //             .bind(attempt as i32)
+    //             .bind("")
+    //             // .bind(v)
+    //             .execute(&self.pool)
+    //             .await
+    //             .unwrap();
+    //         })
+    //     });
+    // }
 
     fn handle_log(
         &mut self,
@@ -412,33 +417,44 @@ impl Runner for Db {
         // let task_logs = self.task_logs.clone();
         let task_id = *task_id;
         let dag_run_id = *dag_run_id;
-        let pool = self.pool.clone();
+        // let pool = self.pool.clone();
 
         Box::new(move |s| {
-            // let mut task_logs = task_logs.lock().unwrap();
-            // if !task_logs.contains_key(&task_id) {
-            //     task_logs.insert(task_id, s);
-            // } else {
-            //     *task_logs.get_mut(&task_id).unwrap() += &s;
+            let key = format!("task_log:{dag_run_id}:{task_id}:{attempt}");
+
+            // if let Result(bool)self.redis.exists(key) {
+            //     let _: Result<(), redis::RedisError> = self.redis.set(key, "");
             // }
-            // let redis = get_redis_client();
-            // tokio::task::block_in_place(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                sqlx::query(
-                    "UPDATE logs
-                    SET log = log || $4
-                    WHERE run_id = $1 AND task_id = $2 AND attempt = $3",
-                )
-                .bind(dag_run_id as i32)
-                .bind(task_id as i32)
-                .bind(attempt as i32)
-                .bind(s)
-                .execute(&pool)
-                .await
-                .unwrap();
-            });
-            // });
+            let mut redis = get_redis_client();
+            let prev: String = redis.get(&key).unwrap_or("".into());
+            let _: Result<(), redis::RedisError> = redis.append(key, format!("{prev}{s}"));
         })
+
+        // Box::new(move |s| {
+        //     // let mut task_logs = task_logs.lock().unwrap();
+        //     // if !task_logs.contains_key(&task_id) {
+        //     //     task_logs.insert(task_id, s);
+        //     // } else {
+        //     //     *task_logs.get_mut(&task_id).unwrap() += &s;
+        //     // }
+        //     // let redis = get_redis_client();
+        //     // tokio::task::block_in_place(|| {
+        //     tokio::runtime::Runtime::new().unwrap().block_on(async {
+        //         sqlx::query(
+        //             "UPDATE logs
+        //             SET log = log || $4
+        //             WHERE run_id = $1 AND task_id = $2 AND attempt = $3",
+        //         )
+        //         .bind(dag_run_id as i32)
+        //         .bind(task_id as i32)
+        //         .bind(attempt as i32)
+        //         .bind(s)
+        //         .execute(&pool)
+        //         .await
+        //         .unwrap();
+        //     });
+        //     // });
+        // })
     }
     // //
     // #[timed(duration(printer = "debug!"))]

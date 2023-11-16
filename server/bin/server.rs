@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 use std::str::from_utf8;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicUsize;
 // use std::str::from_utf8;
 
 use axum::extract::State;
@@ -178,7 +180,7 @@ async fn _trigger_local_run(Path(dag_name): Path<String>, State(pool): State<PgP
         serde_json::from_str(&_get_default_edges(&dag_name).await).unwrap();
     let mut runner = Db::new(&dag_name, &nodes, &edges, pool);
     let dag_run_id = runner.enqueue_run(&dag_name, &_get_hash(&dag_name).await, Utc::now());
-    runner.run(&dag_run_id, 1);
+    runner.run(&dag_run_id, 1, Arc::new(Mutex::new(0)));
 }
 
 #[tokio::main]
