@@ -58,6 +58,8 @@ async fn get_runs_with_tasks(
 ) -> Json<Value> {
     let mut res = json!({});
 
+    dbg!(1);
+
     for run in Db::get_runs(&dag_name, pool.clone()).await.iter() {
         let mut tasks = json!({});
         for task in _get_all_tasks(run.run_id, pool.clone()) {
@@ -161,7 +163,7 @@ async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
     let nodes: Vec<Task> = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
     let edges: HashSet<(usize, usize)> =
         serde_json::from_str(&_get_default_edges(&dag_name).await).unwrap();
-    let mut runner = LocalRunner::new("", &nodes, &edges);
+    let mut runner = InMemoryRunner::new("", &nodes, &edges);
     runner.enqueue_run("local", "", Utc::now());
     let graph = runner.get_graphite_graph(&0);
 
@@ -180,7 +182,77 @@ async fn _trigger_local_run(Path(dag_name): Path<String>, State(pool): State<Poo
         serde_json::from_str(&_get_default_edges(&dag_name).await).unwrap();
     let mut runner = Db::new(&dag_name, &nodes, &edges, pool);
     let dag_run_id = runner.enqueue_run(&dag_name, &_get_hash(&dag_name).await, Utc::now());
-    runner.run(&dag_run_id, 1, Arc::new(Mutex::new(0)));
+    // runner.run(&dag_run_id, 1, Arc::new(Mutex::new(0)));
+    // todo!()
+
+    // let tasks = get_tasks().read().unwrap();
+    // let edges = get_edges().read().unwrap();
+    // let sub_matches = matches.subcommand_matches("local").unwrap();
+    // let mode = sub_matches.get_one::<String>("mode").unwrap();
+
+    // let max_threads = max(
+    //     usize::from(std::thread::available_parallelism().unwrap()) - 1,
+    //     1,
+    // );
+    // let thread_count = match mode.as_str() {
+    //     "--blocking" => 1,
+    //     "max" => max_threads,
+    //     _ => mode.parse::<usize>().unwrap(),
+    // };
+    let mut runner = InMemoryRunner::new(&dag_name, &nodes, &edges);
+    // let dag_run_id = runner.enqueue_run(&"", &"", Utc::now());
+    let default_tasks = runner.get_default_tasks();
+
+    for task in &default_tasks {
+        let mut visited = HashSet::new();
+        let mut path = Vec::new();
+        let deps = runner.get_circular_dependencies(
+            &dag_run_id,
+            task.id,
+            &mut visited,
+            &mut path,
+        );
+
+        if let Some(deps) = deps {
+            panic!("{:?}", deps);
+        }
+    }
+
+    // for task in default_tasks {
+    //     // let depth = self.get_task_depth(dag_run_id, &task.id);
+    //     // if depth == 0 {
+    //     runner.enqueue_task(&dag_run_id, &task.id);
+    //     // }
+    // }
+    // dbg!(2);
+    // let runner = Arc::new(Mutex::new(runner));
+    // // for _ in 0..thread_count {
+    //     dbg!(2);
+
+    //     let runner = runner.clone();
+    //     thread::spawn(move || {
+    //         let runner = runner.clone();
+
+    loop {
+        // dbg!(2);
+        // let runner = runner.clone();
+
+        // let mut runner = runner.lock().unwrap();
+        // dbg!(2);
+
+        // runner.lock().unwrap().run_dag_local();
+        if let Some(queued_task) = runner.pop_priority_queue() {
+            runner.work(&dag_run_id, queued_task);
+        } else {
+            break;
+        }
+        // dbg!(runner.print_priority_queue());
+
+        if runner.is_completed(&dag_run_id) {
+            runner.mark_finished(&dag_run_id);
+            break;
+        }
+    }
 }
 
 #[tokio::main]

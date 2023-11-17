@@ -24,6 +24,8 @@ env_logger = "0.10.0"
 #redis-macros = "0.1.0"
 deadpool = { version = "0.10.0", features = ["managed", "rt_tokio_1"] }
 deadpool-redis = "0.13"
+redis = { version = "0.23", features = ["tokio-comp"] }
+
 
 # server deps
 tower-http = { version = "0.4.4", features = [ "cors", "trace", "compression-gzip" ] }

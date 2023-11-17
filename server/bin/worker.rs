@@ -22,6 +22,7 @@ async fn main() {
     // let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
     let pool = get_redis_pool();
     let dags = &_get_dags();
+    let pool = get_redis_pool();
 
     for dag_name in dags {
         // let all_runs = Db::get_all_runs(dag_name, pool.clone()).await;
@@ -38,7 +39,43 @@ async fn main() {
         edges_hashmap.insert(dag_name.clone(), edges);
         // }
     }
-    todo!();
+    let mut dummy = Db::new("", &[], &HashSet::new(), pool.clone());
+
+    // loop {
+    //     // let pool = pool.clone();
+    //     dbg!(2);
+        // let runner = runner.clone();
+
+        // let mut runner = runner.lock().unwrap();
+        // dbg!(2);
+
+        // runner.lock().unwrap().run_dag_local();
+        if let Some(queued_task) = dummy.pop_priority_queue() {
+            let dag_name = &queued_task.dag_name;
+            let run_id = queued_task.run_id;
+
+            let nodes = node_hashmap.get(dag_name).unwrap();
+            // .or_insert(serde_json::from_value(_get_default_tasks(&dag_name)).unwrap())
+            // .to_vec();
+            let edges: &HashSet<(usize, usize)> = edges_hashmap.get(dag_name).unwrap();
+            dbg!(&dag_name, nodes.len(), edges.len());
+            let mut runner = Db::new(&dag_name, nodes, edges, pool.clone());
+            dbg!(1);
+            runner.work(&run_id, queued_task);
+
+            if runner.is_completed(&run_id) {
+                runner.mark_finished(&run_id);
+            }
+        } 
+            // sleep(Duration::new(2, 0)).await;
+            // break;
+        
+
+    // }
+    // dbg!(10);
+
+
+    // todo!();
     // loop {
     //     for dag_name in dags {
     //         let all_runs = Db::get_pending_runs(dag_name, pool.clone()).await;

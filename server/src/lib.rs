@@ -14,7 +14,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use db::{Db, Run};
 use deadpool::Runtime;
-use deadpool_redis::{Config, Manager, Connection, Pool};
+use deadpool_redis::{Config, Connection, Manager, Pool};
 use log::{debug, LevelFilter};
 // use redis::Connection;
 // use sqlx::{
@@ -179,25 +179,19 @@ pub async fn _get_options(dag_name: &str) -> String {
 // }
 
 #[timed(duration(printer = "debug!"))]
-pub fn _get_all_tasks(run_id: usize
-    , pool: Pool
-) -> Vec<Task> {
+pub fn _get_all_tasks(run_id: usize, pool: Pool) -> Vec<Task> {
     let runner = Db::new("", &[], &HashSet::new(), pool);
     runner.get_all_tasks(&run_id)
 }
 
 #[timed(duration(printer = "debug!"))]
-pub fn _get_task(run_id: usize, task_id: usize,
-    pool: Pool
-    ) -> Task {
+pub fn _get_task(run_id: usize, task_id: usize, pool: Pool) -> Task {
     let runner = Db::new("", &[], &HashSet::new(), pool);
     runner.get_task_by_id(&run_id, &task_id)
 }
 
 // #[timed(duration(printer = "debug!"))]
-pub async fn _get_all_task_results(run_id: usize, task_id: usize,
-    pool: Pool
-    ) -> Vec<TaskResult> {
+pub async fn _get_all_task_results(run_id: usize, task_id: usize, pool: Pool) -> Vec<TaskResult> {
     // let runner = Db::new("", &[], &HashSet::new(), pool);
     Db::get_all_results(run_id, task_id, pool).await
     // todo!()
@@ -254,9 +248,7 @@ pub fn _get_dags() -> Vec<String> {
 }
 
 #[timed(duration(printer = "debug!"))]
-pub async fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>,
-    pool: Pool
-    ) {
+pub async fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>, pool: Pool) {
     let nodes: Vec<Task> = serde_json::from_str(&_get_default_tasks(dag_name).await).unwrap();
     let edges: HashSet<(usize, usize)> =
         serde_json::from_str(&_get_default_edges(dag_name).await).unwrap();
@@ -293,9 +285,32 @@ fn get_redis_url() -> String {
 
 // #[timed(duration(printer = "debug!"))]
 pub fn get_redis_pool() -> Pool {
-
-    let mut cfg = Config::from_url(env::var("REDIS__URL").unwrap());
+    let cfg = Config::from_url(get_redis_url());
     cfg.create_pool(Some(Runtime::Tokio1)).unwrap()
     // let client = redis::Client::open(get_redis_url()).unwrap();
     // client.get_connection().unwrap()
+}
+
+// use deadpool_redis::redis;
+
+/// Simplifies async Redis transactions.
+#[macro_export]
+macro_rules! transaction_async {
+    ($conn:expr, $keys:expr, $body:expr) => {
+        loop {
+            redis::cmd("WATCH")
+                .arg($keys)
+                .query_async::<_, String>($conn)
+                .await
+                .unwrap();
+
+            if let Some(response) = $body {
+                redis::cmd("UNWATCH")
+                    .query_async::<_, String>($conn)
+                    .await
+                    .unwrap();
+                break response;
+            }
+        }
+    };
 }
