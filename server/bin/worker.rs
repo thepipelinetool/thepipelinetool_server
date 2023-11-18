@@ -41,7 +41,7 @@ async fn main() {
     }
     let mut dummy = Db::new("", &[], &HashSet::new(), pool.clone());
 
-    // loop {
+    loop {
     //     // let pool = pool.clone();
     //     dbg!(2);
         // let runner = runner.clone();
@@ -66,12 +66,13 @@ async fn main() {
             if runner.is_completed(&run_id) {
                 runner.mark_finished(&run_id);
             }
-        } 
-            // sleep(Duration::new(2, 0)).await;
+        } else {
+            sleep(Duration::new(2, 0)).await;
+        }
             // break;
         
 
-    // }
+    }
     // dbg!(10);
 
 

@@ -44,7 +44,7 @@ pub struct Run {
 }
 
 impl Db {
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     pub fn new(
         name: &str,
         nodes: &[Task],
@@ -61,7 +61,7 @@ impl Db {
         }
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     pub async fn get_all_results(run_id: usize, task_id: usize, pool: Pool) -> Vec<TaskResult> {
         // tokio::task::block_in_place(|| {
         //     tokio::runtime::Handle::current().block_on(async {
@@ -76,13 +76,13 @@ impl Db {
         //    db.get_a
 
         let mut conn = pool.get().await.unwrap();
-        cmd("LRANGE")
+        dbg!(cmd("LRANGE")
             .arg(&format!("task_results:{run_id}:{task_id}"))
             .arg(0)
             .arg(-1)
             .query_async::<_, Vec<String>>(&mut conn)
             .await
-            .unwrap()
+            .unwrap())
             .iter()
             .map(|v| serde_json::from_str(v).unwrap())
             .collect()
@@ -134,7 +134,7 @@ impl Db {
         // results
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     pub async fn get_runs(dag_name: &str, pool: Pool) -> Vec<Run> {
         // tokio::task::block_in_place(|| {
         //     tokio::runtime::Handle::current().block_on(async {
@@ -333,7 +333,7 @@ impl Db {
     //     // .ok();
     // }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     pub async fn contains_logical_date(
         dag_name: &str,
         dag_hash: &str,
@@ -368,7 +368,7 @@ impl Db {
 }
 
 impl Runner for Db {
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_log(
         &mut self,
         dag_run_id: &usize,
@@ -427,7 +427,7 @@ impl Runner for Db {
     //         })
     //     });
     // }
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn handle_log(
         &mut self,
         dag_run_id: &usize,
@@ -500,7 +500,7 @@ impl Runner for Db {
     //     // false
     // }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_dag_name(&self) -> String {
         self.name.clone()
     }
@@ -542,7 +542,7 @@ impl Runner for Db {
     //     })
     // }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_task_result(&mut self, dag_run_id: &usize, task_id: &usize) -> TaskResult {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -627,7 +627,7 @@ impl Runner for Db {
         // }
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_attempt_by_task_id(&self, dag_run_id: &usize, task_id: &usize) -> usize {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -655,7 +655,7 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_task_status(&mut self, dag_run_id: &usize, task_id: &usize) -> TaskStatus {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -738,7 +738,7 @@ impl Runner for Db {
     //     todo!()
     // }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn set_task_status(&mut self, dag_run_id: &usize, task_id: &usize, task_status: TaskStatus) {
         // let mut redis = Db::get_redis_client();
         // let _: Result<(), redis::RedisError> = self.redis.set(
@@ -781,7 +781,7 @@ impl Runner for Db {
         });
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn create_new_run(
         &mut self,
         dag_name: &str,
@@ -877,7 +877,7 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn insert_task_results(&mut self, dag_run_id: &usize, result: &TaskResult) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -915,13 +915,14 @@ impl Runner for Db {
 
                 let mut conn = self.redis.get().await.unwrap();
                 let res = serde_json::to_string(result).unwrap();
+                let task_id = result.task_id;
+
                 cmd("RPUSH")
-                    .arg(&[format!("task_results:{dag_run_id}"), res.to_string()])
+                    .arg(&[format!("task_results:{dag_run_id}:{task_id}"), res.to_string()])
                     .query_async::<_, ()>(&mut conn)
                     .await
                     .unwrap();
                 // let mut conn = self.redis.get().await.unwrap();
-                let task_id = result.task_id;
                 cmd("SET")
                     .arg(&[format!("task_result:{dag_run_id}:{task_id}"), res])
                     .query_async::<_, ()>(&mut conn)
@@ -937,7 +938,7 @@ impl Runner for Db {
         // );
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn mark_finished(&self, dag_run_id: &usize) {
         dbg!("mark finished!");
         tokio::task::block_in_place(|| {
@@ -954,14 +955,14 @@ impl Runner for Db {
         });
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn any_upstream_incomplete(&mut self, dag_run_id: &usize, task_id: &usize) -> bool {
         self.get_upstream(dag_run_id, task_id)
             .iter()
             .any(|edge| !self.is_task_completed(dag_run_id, edge))
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_dependency_keys(
         &self,
         dag_run_id: &usize,
@@ -1016,7 +1017,7 @@ impl Runner for Db {
         // results
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn set_dependency_keys(
         &mut self,
         dag_run_id: &usize,
@@ -1066,7 +1067,7 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_downstream(&self, dag_run_id: &usize, task_id: &usize) -> HashSet<usize> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1109,7 +1110,7 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_upstream(&self, dag_run_id: &usize, task_id: &usize) -> HashSet<usize> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1152,7 +1153,7 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn remove_edge(&mut self, dag_run_id: &usize, edge: &(usize, usize)) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1214,7 +1215,7 @@ impl Runner for Db {
         });
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn insert_edge(&mut self, dag_run_id: &usize, edge: &(usize, usize)) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1246,12 +1247,12 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_default_tasks(&self) -> Vec<Task> {
         self.nodes.clone()
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_all_tasks_incomplete(&mut self, dag_run_id: &usize) -> Vec<Task> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1304,7 +1305,7 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_all_tasks(&self, dag_run_id: &usize) -> Vec<Task> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1354,12 +1355,12 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_default_edges(&self) -> HashSet<(usize, usize)> {
         self.edges.clone()
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_task_by_id(&self, dag_run_id: &usize, task_id: &usize) -> Task {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1403,7 +1404,7 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn append_new_task_and_set_status_to_pending(
         &mut self,
         dag_run_id: &usize,
@@ -1486,7 +1487,7 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn get_template_args(&self, dag_run_id: &usize, task_id: &usize) -> serde_json::Value {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1526,7 +1527,7 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn set_template_args(&mut self, dag_run_id: &usize, task_id: &usize, template_args_str: &str) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1563,7 +1564,7 @@ impl Runner for Db {
     // fn get_priority_queue(&mut self) -> Vec<QueuedTask> {
     //     todo!()
     // }
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn pop_priority_queue(&mut self) -> Option<QueuedTask> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1617,7 +1618,7 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn push_priority_queue(&mut self, queued_task: QueuedTask) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1677,7 +1678,7 @@ impl Runner for Db {
         });
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn priority_queue_len(&self) -> usize {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1725,7 +1726,7 @@ impl Runner for Db {
         })
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn set_task_depth(&mut self, dag_run_id: &usize, task_id: &usize, depth: usize) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1740,7 +1741,7 @@ impl Runner for Db {
         });
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn enqueue_task(&mut self, dag_run_id: &usize, task_id: &usize) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -1766,7 +1767,7 @@ impl Runner for Db {
         });
     }
 
-    //#[timed(duration(printer = "debug!"))]
+    #[timed(duration(printer = "debug!"))]
     fn print_priority_queue(&mut self) {
         // tokio::task::block_in_place(|| {
         //     tokio::runtime::Handle::current().block_on(async {  })
