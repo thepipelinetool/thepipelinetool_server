@@ -9,7 +9,7 @@ use std::str::FromStr;
 use thepipelinetool::prelude::*;
 
 // use task::task_options::TaskOptions;
-// use task::{task::Task, task_result::TaskResult, task_status::TaskStatus};
+// use task::{task::Task, task_result::TaskResult, {TASK_STATUS_KEY}::TaskStatus};
 
 // #[derive(Clone)]
 pub struct RedisRunner {
@@ -33,7 +33,7 @@ use timed::timed;
 // use task::task::Task;
 // use task::task_options::TaskOptions;
 // use task::task_result::TaskResult;
-// use task::task_status::TaskStatus;
+// use task::{TASK_STATUS_KEY}::TaskStatus;
 // use thepipelinetool::prelude::*;
 
 #[derive(Serialize, Deserialize)]
@@ -41,6 +41,21 @@ pub struct Run {
     pub run_id: usize,
     pub date: DateTime<Utc>,
 }
+
+const TASK_STATUS_KEY: &str = "ts";
+const TASK_RESULTS_KEY: &str = "trs";
+const RUNS_KEY: &str = "runs";
+const LOGICAL_DATES_KEY: &str = "ld";
+const DEPTH_KEY: &str = "d";
+const TASK_RESULT_KEY: &str = "tr";
+const LOG_KEY: &str = "l";
+const TASK_ATTEMPT_KEY: &str = "a";
+const DEPENDENCY_KEYS_KEY: &str = "dk";
+const EDGES_KEY: &str = "e";
+const TASKS_KEY: &str = "tks";
+const TASK_ID_KEY: &str = "ti";
+const TASK_KEY: &str = "t";
+const TEMPLATE_ARGS_KEY: &str = "ta";
 
 impl RedisRunner {
     #[timed(duration(printer = "debug!"))]
@@ -76,7 +91,7 @@ impl RedisRunner {
 
         let mut conn = pool.get().await.unwrap();
         dbg!(cmd("LRANGE")
-            .arg(&format!("task_results:{run_id}:{task_id}"))
+            .arg(&format!("{TASK_RESULTS_KEY}:{run_id}:{task_id}"))
             .arg(0)
             .arg(-1)
             .query_async::<_, Vec<String>>(&mut conn)
@@ -166,7 +181,7 @@ impl RedisRunner {
 
         let mut conn = pool.get().await.unwrap();
         dbg!(cmd("LRANGE")
-            .arg(&format!("runs:{dag_name}"))
+            .arg(&format!("{RUNS_KEY}:{dag_name}"))
             .arg(0)
             .arg(-1)
             .query_async::<_, Vec<String>>(&mut conn)
@@ -345,7 +360,7 @@ impl RedisRunner {
                 let mut conn = pool.get().await.unwrap();
                 cmd("SISMEMBER")
                     .arg(&[
-                        format!("logical_dates:{dag_name}:{dag_hash}"),
+                        format!("{LOGICAL_DATES_KEY}:{dag_name}:{dag_hash}"),
                         logical_date.to_string(),
                     ])
                     .query_async::<_, bool>(&mut conn)
@@ -373,7 +388,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
 
                 cmd("DEL")
-                    .arg(&format!("depth:{dag_run_id}:{task_id}"))
+                    .arg(&format!("{DEPTH_KEY}:{dag_run_id}:{task_id}"))
                     .query_async::<_, usize>(&mut conn)
                     .await
                     .unwrap();
@@ -405,7 +420,7 @@ impl Runner for RedisRunner {
 
                 let mut conn = self.pool.get().await.unwrap();
                 cmd("LRANGE")
-                    .arg(&[format!("log:{dag_run_id}:{task_id}{attempt}")])
+                    .arg(&[format!("{LOG_KEY}:{dag_run_id}:{task_id}{attempt}")])
                     .arg(0)
                     .arg(-1)
                     .query_async::<_, Vec<String>>(&mut conn)
@@ -481,7 +496,7 @@ impl Runner for RedisRunner {
 
                 let mut conn = pool.get().await.unwrap();
                 cmd("RPUSH")
-                    .arg(&dbg!(format!("log:{dag_run_id}:{task_id}:{attempt}")))
+                    .arg(&dbg!(format!("{LOG_KEY}:{dag_run_id}:{task_id}:{attempt}")))
                     .arg(s)
                     .query_async::<_, usize>(&mut conn)
                     .await
@@ -506,7 +521,7 @@ impl Runner for RedisRunner {
 
     //     // let mut redis = Db::get_redis_client();
     //     // if redis
-    //     //     .exists(format!("task_result:{dag_run_id}:{task_id}"))
+    //     //     .exists(format!("{TASK_RESULT_KEY}:{dag_run_id}:{task_id}"))
     //     //     .unwrap()
     //     // {
     //     //     return !self.get_task_result(dag_run_id, task_id).needs_retry();
@@ -526,7 +541,7 @@ impl Runner for RedisRunner {
     //             // let mut redis = Db::get_redis_client();
     //             // let _: Result<(), redis::RedisError> = self
     //             //     .redis
-    //             //     .set(format!("task_status:{dag_run_id}:{task_id}"), "Running");
+    //             //     .set(format!("{TASK_STATUS_KEY}:{dag_run_id}:{task_id}"), "Running");
 
     //             // // Update the task status to "Running" if its last status is "Pending" or "Retrying"
     //             // let rows_affected = sqlx::query(
@@ -563,7 +578,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
                 serde_json::from_str(
                     &cmd("GET")
-                        .arg(&[dbg!(format!("task_result:{dag_run_id}:{task_id}"))])
+                        .arg(&[dbg!(format!("{TASK_RESULT_KEY}:{dag_run_id}:{task_id}"))])
                         .query_async::<_, String>(&mut conn)
                         .await
                         .unwrap(),
@@ -577,13 +592,13 @@ impl Runner for RedisRunner {
         // let mut redis = Db::get_redis_client();
         // let result: Result<String, redis::RedisError> = self
         //     .redis
-        //     .get(format!("task_result:{dag_run_id}:{task_id}"));
+        //     .get(format!("{TASK_RESULT_KEY}:{dag_run_id}:{task_id}"));
 
         // if result.is_ok() {
-        //     println!("hit cache - task_result:{dag_run_id}:{task_id}");
+        //     println!("hit cache - {TASK_RESULT_KEY}:{dag_run_id}:{task_id}");
         //     serde_json::from_str(&result.unwrap()).unwrap()
         // } else {
-        //     println!("cache missed - task_result:{dag_run_id}:{task_id}");
+        //     println!("cache missed - {TASK_RESULT_KEY}:{dag_run_id}:{task_id}");
 
         //     let res = tokio::task::block_in_place(|| {
         //         tokio::runtime::Handle::current().block_on(async {
@@ -633,7 +648,7 @@ impl Runner for RedisRunner {
         //     });
 
         //     let _: Result<(), redis::RedisError> = self.redis.set(
-        //         format!("task_result:{dag_run_id}:{task_id}"),
+        //         format!("{TASK_RESULT_KEY}:{dag_run_id}:{task_id}"),
         //         serde_json::to_string(&res).unwrap(),
         //     );
 
@@ -659,7 +674,7 @@ impl Runner for RedisRunner {
 
                 // result as usize + 1
                 cmd("INCR")
-                    .arg(&[format!("task_attempt:{dag_run_id}:{task_id}")])
+                    .arg(&[format!("{TASK_ATTEMPT_KEY}:{dag_run_id}:{task_id}")])
                     .query_async::<_, usize>(&mut conn)
                     .await
                     .unwrap()
@@ -676,7 +691,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
                 TaskStatus::from_str(
                     &cmd("GET")
-                        .arg(&[dbg!(format!("task_status:{dag_run_id}:{task_id}"))])
+                        .arg(&[dbg!(format!("{TASK_STATUS_KEY}:{dag_run_id}:{task_id}"))])
                         .query_async::<_, String>(&mut conn)
                         .await
                         .unwrap(),
@@ -692,13 +707,13 @@ impl Runner for RedisRunner {
         // // let mut redis = Db::get_redis_client();
         // let result = self
         //     .redis
-        //     .get(format!("task_status:{dag_run_id}:{task_id}"));
+        //     .get(format!("{TASK_STATUS_KEY}:{dag_run_id}:{task_id}"));
 
         // let task_status = if result.is_ok() {
-        //     println!("hit cache - task_status:{dag_run_id}:{task_id}");
+        //     println!("hit cache - {TASK_STATUS_KEY}:{dag_run_id}:{task_id}");
         //     result.unwrap()
         // } else {
-        //     println!("cache missed - task_status:{dag_run_id}:{task_id}");
+        //     println!("cache missed - {TASK_STATUS_KEY}:{dag_run_id}:{task_id}");
 
         //     result.unwrap_or_else(|_| {
         //         tokio::task::block_in_place(|| {
@@ -727,7 +742,7 @@ impl Runner for RedisRunner {
         //         });
         //         let _: Result<(), redis::RedisError> = self
         //             .redis
-        //             .set(format!("task_status:{dag_run_id}:{task_id}"), &status);
+        //             .set(format!("{TASK_STATUS_KEY}:{dag_run_id}:{task_id}"), &status);
 
         //         status.to_string()
         //     })
@@ -756,7 +771,7 @@ impl Runner for RedisRunner {
     fn set_task_status(&mut self, dag_run_id: &usize, task_id: &usize, task_status: TaskStatus) {
         // let mut redis = Db::get_redis_client();
         // let _: Result<(), redis::RedisError> = self.redis.set(
-        //     format!("task_status:{dag_run_id}:{task_id}"),
+        //     format!("{TASK_STATUS_KEY}:{dag_run_id}:{task_id}"),
         //     task_status.as_str(),
         // );
 
@@ -782,7 +797,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
                 cmd("SET")
                     .arg(&[
-                        dbg!(format!("task_status:{dag_run_id}:{task_id}")),
+                        dbg!(format!("{TASK_STATUS_KEY}:{dag_run_id}:{task_id}")),
                         task_status.as_str().to_string(),
                     ])
                     .query_async::<_, String>(&mut conn)
@@ -842,7 +857,7 @@ impl Runner for RedisRunner {
 
                 let mut conn = self.pool.get().await.unwrap();
                 cmd("RPUSH")
-                    .arg(&format!("runs:{dag_name}"))
+                    .arg(&format!("{RUNS_KEY}:{dag_name}"))
                     .arg(
                         serde_json::to_string(&Run {
                             run_id,
@@ -933,7 +948,7 @@ impl Runner for RedisRunner {
 
                 cmd("RPUSH")
                     .arg(&[
-                        format!("task_results:{dag_run_id}:{task_id}"),
+                        format!("{TASK_RESULTS_KEY}:{dag_run_id}:{task_id}"),
                         res.to_string(),
                     ])
                     .query_async::<_, ()>(&mut conn)
@@ -941,7 +956,7 @@ impl Runner for RedisRunner {
                     .unwrap();
                 // let mut conn = self.redis.get().await.unwrap();
                 cmd("SET")
-                    .arg(&[format!("task_result:{dag_run_id}:{task_id}"), res])
+                    .arg(&[format!("{TASK_RESULT_KEY}:{dag_run_id}:{task_id}"), res])
                     .query_async::<_, ()>(&mut conn)
                     .await
                     .unwrap();
@@ -950,7 +965,7 @@ impl Runner for RedisRunner {
 
         // let mut redis = Db::get_redis_client();
         // let _: Result<(), redis::RedisError> = self.redis.set(
-        //     format!("task_result:{dag_run_id}:{}", result.task_id),
+        //     format!("{TASK_RESULT_KEY}:{dag_run_id}:{}", result.task_id),
         //     serde_json::to_string(result).unwrap(),
         // );
     }
@@ -1015,7 +1030,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
 
                 let k: Vec<((usize, String), String)> = cmd("SMEMBERS")
-                    .arg(&dbg!(format!("dependency_keys:{dag_run_id}:{task_id}")))
+                    .arg(&dbg!(format!("{DEPENDENCY_KEYS_KEY}:{dag_run_id}:{task_id}")))
                     // .arg(0)
                     // .arg(-1)
                     .query_async::<_, Vec<String>>(&mut conn)
@@ -1078,7 +1093,7 @@ impl Runner for RedisRunner {
                 //     vals.push((k, v));
                 // }
                 cmd("SADD")
-                    .arg(&format!("dependency_keys:{dag_run_id}:{task_id}"))
+                    .arg(&format!("{DEPENDENCY_KEYS_KEY}:{dag_run_id}:{task_id}"))
                     .arg(dbg!(serde_json::to_string(&(upstream, v)).unwrap()))
                     .query_async::<_, ()>(&mut conn)
                     .await
@@ -1110,7 +1125,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
                 dbg!(HashSet::from_iter(
                     cmd("SMEMBERS")
-                        .arg(&[format!("edges:{dag_run_id}")])
+                        .arg(&[format!("{EDGES_KEY}:{dag_run_id}")])
                         .query_async::<_, Vec<String>>(&mut conn)
                         .await
                         .unwrap()
@@ -1153,7 +1168,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
                 dbg!(HashSet::from_iter(
                     cmd("SMEMBERS")
-                        .arg(&[format!("edges:{dag_run_id}")])
+                        .arg(&[format!("{EDGES_KEY}:{dag_run_id}")])
                         .query_async::<_, Vec<String>>(&mut conn)
                         .await
                         .unwrap()
@@ -1206,7 +1221,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
                 cmd("SREM")
                     .arg(&[
-                        format!("edges:{dag_run_id}"),
+                        format!("{EDGES_KEY}:{dag_run_id}"),
                         serde_json::to_string(edge).unwrap(),
                     ])
                     .query_async::<_, usize>(&mut conn)
@@ -1224,7 +1239,7 @@ impl Runner for RedisRunner {
                 //     vals.push((k, v));
                 // }
                 cmd("SREM")
-                    .arg(&format!("dependency_keys:{dag_run_id}:{}", edge.1))
+                    .arg(&format!("{DEPENDENCY_KEYS_KEY}:{dag_run_id}:{}", edge.1))
                     .arg(dbg!(serde_json::to_string(&(edge.0, "")).unwrap()))
                     .query_async::<_, ()>(&mut conn)
                     .await
@@ -1255,7 +1270,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
                 cmd("SADD")
                     .arg(&[
-                        format!("edges:{dag_run_id}"),
+                        format!("{EDGES_KEY}:{dag_run_id}"),
                         serde_json::to_string(edge).unwrap(),
                     ])
                     .query_async::<_, ()>(&mut conn)
@@ -1360,7 +1375,7 @@ impl Runner for RedisRunner {
 
                 let mut conn: deadpool_redis::Connection = self.pool.get().await.unwrap();
                 cmd("SMEMBERS")
-                    .arg(&format!("tasks:{dag_run_id}"))
+                    .arg(&format!("{TASKS_KEY}:{dag_run_id}"))
                     // .arg(0)
                     // .arg(-1)
                     .query_async::<_, Vec<String>>(&mut conn)
@@ -1412,7 +1427,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
                 serde_json::from_str(
                     &cmd("GET")
-                        .arg(&[format!("task:{dag_run_id}:{task_id}")])
+                        .arg(&[format!("{TASK_KEY}:{dag_run_id}:{task_id}")])
                         .query_async::<_, String>(&mut conn)
                         .await
                         .unwrap(),
@@ -1457,7 +1472,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
 
                 let task_id = cmd("INCR")
-                    .arg(&[format!("task_id:{dag_run_id}")])
+                    .arg(&[format!("{TASK_ID_KEY}:{dag_run_id}")])
                     .query_async::<_, usize>(&mut conn)
                     .await
                     .unwrap()
@@ -1475,7 +1490,7 @@ impl Runner for RedisRunner {
                 };
                 cmd("SADD")
                     .arg(&[
-                        format!("tasks:{dag_run_id}"),
+                        format!("{TASKS_KEY}:{dag_run_id}"),
                         serde_json::to_string(&task).unwrap(),
                     ])
                     .query_async::<_, usize>(&mut conn)
@@ -1483,7 +1498,7 @@ impl Runner for RedisRunner {
                     .unwrap();
                 cmd("SET")
                     .arg(&[
-                        format!("task:{dag_run_id}:{task_id}"),
+                        format!("{TASK_KEY}:{dag_run_id}:{task_id}"),
                         serde_json::to_string(&task).unwrap(),
                     ])
                     .query_async::<_, ()>(&mut conn)
@@ -1492,7 +1507,7 @@ impl Runner for RedisRunner {
                 dbg!(dag_run_id, task_id);
                 cmd("SET")
                     .arg(&[
-                        format!("template_args:{dag_run_id}:{task_id}"),
+                        format!("{TEMPLATE_ARGS_KEY}:{dag_run_id}:{task_id}"),
                         serde_json::to_string(&task.template_args).unwrap(),
                     ])
                     .query_async::<_, ()>(&mut conn)
@@ -1533,7 +1548,7 @@ impl Runner for RedisRunner {
 
                 // serde_json::from_str(
                 //     &cmd("GET")
-                //         .arg(&[dbg!(format!("template_args:{dag_run_id}:{task_id}"))])
+                //         .arg(&[dbg!(format!("{TEMPLATE_ARGS_KEY}:{dag_run_id}:{task_id}"))])
                 //         .query_async::<_, String>(&mut conn)
                 //         .await
                 //         .unwrap(),
@@ -1569,7 +1584,7 @@ impl Runner for RedisRunner {
 
                 cmd("SET")
                     .arg(&[
-                        format!("task:{dag_run_id}:{task_id}"),
+                        format!("{TASK_KEY}:{dag_run_id}:{task_id}"),
                         serde_json::to_string(&task).unwrap(),
                     ])
                     .query_async::<_, String>(&mut conn)
@@ -1624,9 +1639,9 @@ impl Runner for RedisRunner {
                             .query_async::<_, ()>(&mut conn)
                             .await
                             .unwrap();
-                        return Some(OrderedQueuedTask{
+                        return Some(OrderedQueuedTask {
                             score: vec[1].parse().unwrap(),
-                            task: serde_json::from_str(&vec[0]).unwrap()
+                            task: serde_json::from_str(&vec[0]).unwrap(),
                         });
                     }
                 } else {
@@ -1721,12 +1736,12 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
 
                 // cmd("GET")
-                //     .arg(&format!("depth:{dag_run_id}:{task_id}"))
+                //     .arg(&format!("{DEPTH_KEY}:{dag_run_id}:{task_id}"))
                 //     .query_async::<_, usize>(&mut conn)
                 //     .await
                 //     .unwrap()
                 if !cmd("EXISTS")
-                    .arg(&format!("depth:{dag_run_id}:{task_id}"))
+                    .arg(&format!("{DEPTH_KEY}:{dag_run_id}:{task_id}"))
                     .query_async::<_, bool>(&mut conn)
                     .await
                     .unwrap()
@@ -1740,7 +1755,7 @@ impl Runner for RedisRunner {
                     self.set_task_depth(dag_run_id, task_id, depth);
                 }
                 cmd("GET")
-                    .arg(&format!("depth:{dag_run_id}:{task_id}"))
+                    .arg(&format!("{DEPTH_KEY}:{dag_run_id}:{task_id}"))
                     .query_async::<_, usize>(&mut conn)
                     .await
                     .unwrap()
@@ -1755,7 +1770,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
 
                 cmd("SET")
-                    .arg(&[format!("depth:{dag_run_id}:{task_id}"), depth.to_string()])
+                    .arg(&[format!("{DEPTH_KEY}:{dag_run_id}:{task_id}"), depth.to_string()])
                     .query_async::<_, ()>(&mut conn)
                     .await
                     .unwrap();

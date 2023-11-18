@@ -40,7 +40,7 @@ async fn main() {
     }
     let mut dummy = RedisRunner::new("", &[], &HashSet::new(), pool.clone());
 
-    // loop {
+    loop {
     //     // let pool = pool.clone();
     //     dbg!(2);
         // let runner = runner.clone();
@@ -72,7 +72,7 @@ async fn main() {
             // break;
         
 
-    // }
+    }
     // dbg!(10);
 
 
