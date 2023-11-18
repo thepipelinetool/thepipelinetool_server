@@ -1,9 +1,9 @@
-use futures::{StreamExt, TryStreamExt, AsyncBufReadExt};
+use futures::{AsyncBufReadExt, StreamExt, TryStreamExt};
 use k8s_openapi::api::core::v1::Pod;
 // use tracing::*;
 
 use kube::{
-    api::{Api, DeleteParams, PostParams, ResourceExt, WatchEvent, WatchParams, LogParams},
+    api::{Api, DeleteParams, LogParams, PostParams, ResourceExt, WatchEvent, WatchParams},
     Client,
 };
 use log::info;
@@ -37,7 +37,9 @@ async fn main() -> anyhow::Result<()> {
     let k = pods.create(&PostParams::default(), &p).await?;
 
     // Wait until the pod is running, otherwise we get 500 error.
-    let wp = WatchParams::default().fields("metadata.name=example").timeout(10);
+    let wp = WatchParams::default()
+        .fields("metadata.name=example")
+        .timeout(10);
     let mut stream = pods.watch(&wp, "0").await?.boxed();
     while let Some(status) = stream.try_next().await? {
         match status {
@@ -57,14 +59,17 @@ async fn main() -> anyhow::Result<()> {
 
     // let pods: Api<Pod> = Api::default_namespaced(client);
     let mut logs = pods
-        .log_stream(&k.metadata.name.unwrap(), &LogParams {
-            follow: true,
-            container: Some("example".into()),
-            // tail_lines: app.tail,
-            // since_seconds: app.since,
-            timestamps: true,
-            ..LogParams::default()
-        })
+        .log_stream(
+            &k.metadata.name.unwrap(),
+            &LogParams {
+                follow: true,
+                container: Some("example".into()),
+                // tail_lines: app.tail,
+                // since_seconds: app.since,
+                timestamps: true,
+                ..LogParams::default()
+            },
+        )
         .await?
         .lines();
 

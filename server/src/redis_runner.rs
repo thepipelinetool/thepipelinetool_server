@@ -1030,7 +1030,9 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
 
                 let k: Vec<((usize, String), String)> = cmd("SMEMBERS")
-                    .arg(&dbg!(format!("{DEPENDENCY_KEYS_KEY}:{dag_run_id}:{task_id}")))
+                    .arg(&dbg!(format!(
+                        "{DEPENDENCY_KEYS_KEY}:{dag_run_id}:{task_id}"
+                    )))
                     // .arg(0)
                     // .arg(-1)
                     .query_async::<_, Vec<String>>(&mut conn)
@@ -1770,7 +1772,10 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
 
                 cmd("SET")
-                    .arg(&[format!("{DEPTH_KEY}:{dag_run_id}:{task_id}"), depth.to_string()])
+                    .arg(&[
+                        format!("{DEPTH_KEY}:{dag_run_id}:{task_id}"),
+                        depth.to_string(),
+                    ])
                     .query_async::<_, ()>(&mut conn)
                     .await
                     .unwrap();

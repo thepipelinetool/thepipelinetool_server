@@ -6,7 +6,10 @@ use std::{
 // use thepipelinetool::prelude::*;
 
 // use runner::{local::hash_dag, DefRunner, Runner};
-use server::{_get_dags, _get_default_edges, _get_default_tasks, _get_hash, redis_runner::RedisRunner, get_redis_pool};
+use server::{
+    _get_dags, _get_default_edges, _get_default_tasks, _get_hash, get_redis_pool,
+    redis_runner::RedisRunner,
+};
 use thepipelinetool::prelude::*;
 use tokio::time::sleep;
 
@@ -41,8 +44,8 @@ async fn main() {
     let mut dummy = RedisRunner::new("", &[], &HashSet::new(), pool.clone());
 
     loop {
-    //     // let pool = pool.clone();
-    //     dbg!(2);
+        //     // let pool = pool.clone();
+        //     dbg!(2);
         // let runner = runner.clone();
 
         // let mut runner = runner.lock().unwrap();
@@ -69,12 +72,9 @@ async fn main() {
         } else {
             sleep(Duration::new(2, 0)).await;
         }
-            // break;
-        
-
+        // break;
     }
     // dbg!(10);
-
 
     // todo!();
     // loop {

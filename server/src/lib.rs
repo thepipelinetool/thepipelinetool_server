@@ -1,17 +1,16 @@
 use std::{
     collections::{HashMap, HashSet},
-    env,
-    fs,
+    env, fs,
     io::ErrorKind,
     path::PathBuf,
     sync::{Arc, OnceLock},
 };
 
 use chrono::{DateTime, Utc};
-use redis_runner::RedisRunner;
 use deadpool::Runtime;
 use deadpool_redis::{Config, Pool};
 use log::debug;
+use redis_runner::RedisRunner;
 // use redis::Connection;
 // use sqlx::{
 //     postgres::{PgConnectOptions, PgPoolOptions},
@@ -250,7 +249,11 @@ pub async fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>, pool: Poo
         serde_json::from_str(&_get_default_edges(dag_name).await).unwrap();
     let hash = _get_hash(dag_name).await;
 
-    RedisRunner::new(dag_name, &nodes, &edges, pool.clone()).enqueue_run(dag_name, &hash, logical_date);
+    RedisRunner::new(dag_name, &nodes, &edges, pool.clone()).enqueue_run(
+        dag_name,
+        &hash,
+        logical_date,
+    );
 }
 
 // fn get_db_url() -> String {
