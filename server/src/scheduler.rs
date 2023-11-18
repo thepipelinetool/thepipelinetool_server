@@ -12,7 +12,7 @@ use saffron::Cron;
 use thepipelinetool::prelude::DagOptions;
 use tokio::time::sleep;
 
-use crate::{_get_dags, _get_hash, _get_options, _trigger_run, db::Db};
+use crate::{_get_dags, _get_hash, _get_options, _trigger_run, redis_runner::RedisRunner};
 
 pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool) {
     let up_to_initial = *up_to;
@@ -80,7 +80,7 @@ pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool) {
                                         }
                                     }
                                     // check if date is already in db
-                                    if Db::contains_logical_date(
+                                    if RedisRunner::contains_logical_date(
                                         &dag_name,
                                         &_get_hash(&dag_name).await,
                                         time,

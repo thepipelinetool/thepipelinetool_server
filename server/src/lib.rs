@@ -8,7 +8,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use db::Db;
+use redis_runner::RedisRunner;
 use deadpool::Runtime;
 use deadpool_redis::{Config, Pool};
 use log::debug;
@@ -22,7 +22,7 @@ use timed::timed;
 use tokio::{process::Command, sync::Mutex};
 
 pub mod catchup;
-pub mod db;
+pub mod redis_runner;
 pub mod scheduler;
 
 pub const DAGS_DIR: &str = "./bin";
@@ -176,20 +176,20 @@ pub async fn _get_options(dag_name: &str) -> String {
 
 #[timed(duration(printer = "debug!"))]
 pub fn _get_all_tasks(run_id: usize, pool: Pool) -> Vec<Task> {
-    let runner = Db::new("", &[], &HashSet::new(), pool);
+    let runner = RedisRunner::new("", &[], &HashSet::new(), pool);
     runner.get_all_tasks(&run_id)
 }
 
 #[timed(duration(printer = "debug!"))]
 pub fn _get_task(run_id: usize, task_id: usize, pool: Pool) -> Task {
-    let runner = Db::new("", &[], &HashSet::new(), pool);
+    let runner = RedisRunner::new("", &[], &HashSet::new(), pool);
     runner.get_task_by_id(&run_id, &task_id)
 }
 
 // #[timed(duration(printer = "debug!"))]
 pub async fn _get_all_task_results(run_id: usize, task_id: usize, pool: Pool) -> Vec<TaskResult> {
     // let runner = Db::new("", &[], &HashSet::new(), pool);
-    Db::get_all_results(run_id, task_id, pool).await
+    RedisRunner::get_all_results(run_id, task_id, pool).await
     // todo!()
 }
 
@@ -200,7 +200,7 @@ pub fn _get_task_status(
     pool: Pool,
     // redis: Connection
 ) -> TaskStatus {
-    let mut runner = Db::new("", &[], &HashSet::new(), pool);
+    let mut runner = RedisRunner::new("", &[], &HashSet::new(), pool);
     runner.get_task_status(&run_id, &task_id)
 }
 
@@ -211,7 +211,7 @@ pub fn _get_task_result(
     pool: Pool,
     // redis: Connection
 ) -> TaskResult {
-    let mut runner = Db::new("", &[], &HashSet::new(), pool);
+    let mut runner = RedisRunner::new("", &[], &HashSet::new(), pool);
     runner.get_task_result(&run_id, &task_id)
 }
 
@@ -250,7 +250,7 @@ pub async fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>, pool: Poo
         serde_json::from_str(&_get_default_edges(dag_name).await).unwrap();
     let hash = _get_hash(dag_name).await;
 
-    Db::new(dag_name, &nodes, &edges, pool.clone()).enqueue_run(dag_name, &hash, logical_date);
+    RedisRunner::new(dag_name, &nodes, &edges, pool.clone()).enqueue_run(dag_name, &hash, logical_date);
 }
 
 // fn get_db_url() -> String {

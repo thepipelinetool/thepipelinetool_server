@@ -12,12 +12,12 @@ use thepipelinetool::prelude::*;
 // use task::{task::Task, task_result::TaskResult, task_status::TaskStatus};
 
 // #[derive(Clone)]
-pub struct Db {
+pub struct RedisRunner {
     edges: HashSet<(usize, usize)>,
     nodes: Vec<Task>,
     name: String,
     // pool: Pool,
-    redis: Pool,
+    pool: Pool,
 }
 
 // impl Default for Postgres {
@@ -42,13 +42,13 @@ pub struct Run {
     pub date: DateTime<Utc>,
 }
 
-impl Db {
+impl RedisRunner {
     #[timed(duration(printer = "debug!"))]
     pub fn new(
         name: &str,
         nodes: &[Task],
         edges: &HashSet<(usize, usize)>,
-        redis: Pool,
+        pool: Pool,
         // redis: Connection,
     ) -> Self {
         // let redis = get_redis_pool();
@@ -56,7 +56,7 @@ impl Db {
             name: name.into(),
             edges: edges.clone(),
             nodes: nodes.to_vec(),
-            redis,
+            pool,
         }
     }
 
@@ -82,9 +82,9 @@ impl Db {
             .query_async::<_, Vec<String>>(&mut conn)
             .await
             .unwrap())
-            .iter()
-            .map(|v| serde_json::from_str(v).unwrap())
-            .collect()
+        .iter()
+        .map(|v| serde_json::from_str(v).unwrap())
+        .collect()
 
         // let rows = sqlx::query(
         //     "
@@ -366,7 +366,21 @@ impl Db {
     }
 }
 
-impl Runner for Db {
+impl Runner for RedisRunner {
+    fn delete_task_depth(&mut self, dag_run_id: &usize, task_id: &usize) {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let mut conn = self.pool.get().await.unwrap();
+
+                cmd("DEL")
+                    .arg(&format!("depth:{dag_run_id}:{task_id}"))
+                    .query_async::<_, usize>(&mut conn)
+                    .await
+                    .unwrap();
+            });
+        });
+    }
+
     #[timed(duration(printer = "debug!"))]
     fn get_log(
         &mut self,
@@ -389,12 +403,15 @@ impl Runner for Db {
                 //         .await;
                 //         task.unwrap().get(0)
 
-                let mut conn = self.redis.get().await.unwrap();
-                cmd("GET")
+                let mut conn = self.pool.get().await.unwrap();
+                cmd("LRANGE")
                     .arg(&[format!("log:{dag_run_id}:{task_id}{attempt}")])
-                    .query_async::<_, String>(&mut conn)
+                    .arg(0)
+                    .arg(-1)
+                    .query_async::<_, Vec<String>>(&mut conn)
                     .await
-                    .unwrap_or("".into())
+                    .unwrap_or_default()
+                    .join("\n")
             })
         })
     }
@@ -436,8 +453,8 @@ impl Runner for Db {
         // let task_logs = self.task_logs.clone();
         let task_id = *task_id;
         let dag_run_id = *dag_run_id;
-        let pool = self.redis.clone();
-        let log = self.get_log(&dag_run_id, &task_id, attempt);
+        let pool = self.pool.clone();
+        // let log = self.get_log(&dag_run_id, &task_id, attempt);
 
         Box::new(move |s| {
             // let mut task_logs = task_logs.lock().unwrap();
@@ -463,12 +480,10 @@ impl Runner for Db {
                 // .unwrap();
 
                 let mut conn = pool.get().await.unwrap();
-                cmd("SET")
-                    .arg(&[
-                        dbg!(format!("log:{dag_run_id}:{task_id}:{attempt}")),
-                        format!("{log}{s}"),
-                    ])
-                    .query_async::<_, String>(&mut conn)
+                cmd("RPUSH")
+                    .arg(&dbg!(format!("log:{dag_run_id}:{task_id}:{attempt}")))
+                    .arg(s)
+                    .query_async::<_, usize>(&mut conn)
                     .await
                     .unwrap()
                 // .iter()
@@ -545,7 +560,7 @@ impl Runner for Db {
     fn get_task_result(&mut self, dag_run_id: &usize, task_id: &usize) -> TaskResult {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
                 serde_json::from_str(
                     &cmd("GET")
                         .arg(&[dbg!(format!("task_result:{dag_run_id}:{task_id}"))])
@@ -640,7 +655,7 @@ impl Runner for Db {
                 // .await
                 // .unwrap()
                 // .get(0);
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
 
                 // result as usize + 1
                 cmd("INCR")
@@ -658,7 +673,7 @@ impl Runner for Db {
     fn get_task_status(&mut self, dag_run_id: &usize, task_id: &usize) -> TaskStatus {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
                 TaskStatus::from_str(
                     &cmd("GET")
                         .arg(&[dbg!(format!("task_status:{dag_run_id}:{task_id}"))])
@@ -764,7 +779,7 @@ impl Runner for Db {
 
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
                 cmd("SET")
                     .arg(&[
                         dbg!(format!("task_status:{dag_run_id}:{task_id}")),
@@ -817,7 +832,7 @@ impl Runner for Db {
                 // .await
                 // .unwrap()
                 // .get(0);
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
 
                 let run_id = cmd("INCR")
                     .arg("run")
@@ -825,7 +840,7 @@ impl Runner for Db {
                     .await
                     .unwrap();
 
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
                 cmd("RPUSH")
                     .arg(&format!("runs:{dag_name}"))
                     .arg(
@@ -912,12 +927,15 @@ impl Runner for Db {
                 // .await
                 // .unwrap();
 
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
                 let res = serde_json::to_string(result).unwrap();
                 let task_id = result.task_id;
 
                 cmd("RPUSH")
-                    .arg(&[format!("task_results:{dag_run_id}:{task_id}"), res.to_string()])
+                    .arg(&[
+                        format!("task_results:{dag_run_id}:{task_id}"),
+                        res.to_string(),
+                    ])
                     .query_async::<_, ()>(&mut conn)
                     .await
                     .unwrap();
@@ -937,22 +955,22 @@ impl Runner for Db {
         // );
     }
 
-    #[timed(duration(printer = "debug!"))]
-    fn mark_finished(&self, dag_run_id: &usize) {
-        dbg!("mark finished!");
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                // sqlx::query("UPDATE runs SET status = $2 WHERE run_id = $1")
-                //     .bind(*dag_run_id as i32)
-                //     .bind("Completed")
-                //     // .bind(v)
-                //     .execute(&self.pool)
-                //     .await
-                //     .unwrap();
-                // todo!()
-            })
-        });
-    }
+    // #[timed(duration(printer = "debug!"))]
+    // fn mark_finished(&self, dag_run_id: &usize) {
+    //     dbg!("mark finished!");
+    //     tokio::task::block_in_place(|| {
+    //         tokio::runtime::Handle::current().block_on(async {
+    //             // sqlx::query("UPDATE runs SET status = $2 WHERE run_id = $1")
+    //             //     .bind(*dag_run_id as i32)
+    //             //     .bind("Completed")
+    //             //     // .bind(v)
+    //             //     .execute(&self.pool)
+    //             //     .await
+    //             //     .unwrap();
+    //             // todo!()
+    //         })
+    //     });
+    // }
 
     #[timed(duration(printer = "debug!"))]
     fn any_upstream_incomplete(&mut self, dag_run_id: &usize, task_id: &usize) -> bool {
@@ -994,21 +1012,26 @@ impl Runner for Db {
                 //         upstream_result_key,
                 //     );
                 // }
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
 
-                let k = cmd("GET")
-                    .arg(&[dbg!(format!("dependency_keys:{dag_run_id}:{task_id}"))])
-                    .query_async::<_, String>(&mut conn)
+                let k: Vec<((usize, String), String)> = cmd("SMEMBERS")
+                    .arg(&dbg!(format!("dependency_keys:{dag_run_id}:{task_id}")))
+                    // .arg(0)
+                    // .arg(-1)
+                    .query_async::<_, Vec<String>>(&mut conn)
                     .await
-                    .unwrap_or("[]".into());
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|v| serde_json::from_str(v).unwrap())
+                    .collect();
 
-                let m: Vec<((usize, String), String)> = serde_json::from_str(&k).unwrap();
-                let mut h = HashMap::new();
+                // let m: Vec<((usize, String), String)> = serde_json::from_str(&k).unwrap();
+                // let mut h = HashMap::new();
 
-                for j in m {
-                    h.insert(j.0, j.1);
-                }
-                h
+                // for j in k {
+                //     h.insert(j.0, j.1);
+                // }
+                k.into_iter().collect()
                 // todo!()
             })
         })
@@ -1045,20 +1068,18 @@ impl Runner for Db {
                 // let (upstream_task_id, template_arg_key) = upstream;
                 // let template_arg_key = template_arg_key.unwrap_or("".into());
 
-                let mut dep_keys = self.get_dependency_keys(dag_run_id, task_id);
-                dep_keys.insert(upstream, v);
+                // let mut dep_keys = self.get_dependency_keys(dag_run_id, task_id);
+                // dep_keys.insert(upstream, v);
 
-                let mut conn = self.redis.get().await.unwrap();
-                let mut vals = vec![];
+                let mut conn = self.pool.get().await.unwrap();
+                // let mut vals = vec![];
 
-                for (k, v) in dep_keys.drain() {
-                    vals.push((k, v));
-                }
-                cmd("SET")
-                    .arg(&[
-                        format!("dependency_keys:{dag_run_id}:{task_id}"),
-                        dbg!(serde_json::to_string(&vals).unwrap()),
-                    ])
+                // for (k, v) in dep_keys.drain() {
+                //     vals.push((k, v));
+                // }
+                cmd("SADD")
+                    .arg(&format!("dependency_keys:{dag_run_id}:{task_id}"))
+                    .arg(dbg!(serde_json::to_string(&(upstream, v)).unwrap()))
                     .query_async::<_, ()>(&mut conn)
                     .await
                     .unwrap();
@@ -1086,7 +1107,7 @@ impl Runner for Db {
 
                 // downstream_tasks
 
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
                 dbg!(HashSet::from_iter(
                     cmd("SMEMBERS")
                         .arg(&[format!("edges:{dag_run_id}")])
@@ -1129,7 +1150,7 @@ impl Runner for Db {
 
                 // upstream_tasks
 
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
                 dbg!(HashSet::from_iter(
                     cmd("SMEMBERS")
                         .arg(&[format!("edges:{dag_run_id}")])
@@ -1182,7 +1203,7 @@ impl Runner for Db {
                 // .await
                 // .unwrap();
 
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
                 cmd("SREM")
                     .arg(&[
                         format!("edges:{dag_run_id}"),
@@ -1192,21 +1213,19 @@ impl Runner for Db {
                     .await
                     .unwrap();
 
-                let mut dep_keys = self.get_dependency_keys(dag_run_id, &edge.1);
-                dep_keys.retain(|k, _| k != &(edge.0, "".into()));
+                // let mut dep_keys = self.get_dependency_keys(dag_run_id, &edge.1);
+                // dep_keys.retain(|k, _| k != &(edge.0, "".into()));
 
-                // self.set_dependency_keys(dag_run_id, task_id, upstream, v)
+                // // self.set_dependency_keys(dag_run_id, task_id, upstream, v)
 
-                let mut vals = vec![];
+                // let mut vals = vec![];
 
-                for (k, v) in dep_keys.drain() {
-                    vals.push((k, v));
-                }
-                cmd("SET")
-                    .arg(&[
-                        format!("dependency_keys:{dag_run_id}:{}", edge.1),
-                        dbg!(serde_json::to_string(&vals).unwrap()),
-                    ])
+                // for (k, v) in dep_keys.drain() {
+                //     vals.push((k, v));
+                // }
+                cmd("SREM")
+                    .arg(&format!("dependency_keys:{dag_run_id}:{}", edge.1))
+                    .arg(dbg!(serde_json::to_string(&(edge.0, "")).unwrap()))
                     .query_async::<_, ()>(&mut conn)
                     .await
                     .unwrap();
@@ -1233,7 +1252,7 @@ impl Runner for Db {
                 // .await
                 // .unwrap();
 
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
                 cmd("SADD")
                     .arg(&[
                         format!("edges:{dag_run_id}"),
@@ -1339,7 +1358,7 @@ impl Runner for Db {
                 //     })
                 //     .collect()
 
-                let mut conn: deadpool_redis::Connection = self.redis.get().await.unwrap();
+                let mut conn: deadpool_redis::Connection = self.pool.get().await.unwrap();
                 cmd("SMEMBERS")
                     .arg(&format!("tasks:{dag_run_id}"))
                     // .arg(0)
@@ -1390,7 +1409,7 @@ impl Runner for Db {
                 //     is_branch,
                 // }
 
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
                 serde_json::from_str(
                     &cmd("GET")
                         .arg(&[format!("task:{dag_run_id}:{task_id}")])
@@ -1435,7 +1454,7 @@ impl Runner for Db {
                 // .bind(is_dynamic)
                 // .bind(is_branch)
                 // .fetch_one(&self.pool).await.unwrap().get(0);
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
 
                 let task_id = cmd("INCR")
                     .arg(&[format!("task_id:{dag_run_id}")])
@@ -1542,7 +1561,7 @@ impl Runner for Db {
                 // .await
                 // .unwrap();
 
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
                 let mut task = self.get_task_by_id(dag_run_id, task_id);
                 task.template_args = serde_json::from_str(template_args_str).unwrap();
 
@@ -1564,11 +1583,11 @@ impl Runner for Db {
     //     todo!()
     // }
     #[timed(duration(printer = "debug!"))]
-    fn pop_priority_queue(&mut self) -> Option<QueuedTask> {
+    fn pop_priority_queue(&mut self) -> Option<OrderedQueuedTask> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 // transaction_async!(&mut self.redis.get().await.unwrap(), &["queue_watch"], {
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
 
                 let res = cmd("ZPOPMIN")
                     .arg(&["queue".to_string(), "1".to_string()]) // TODO timeout arg
@@ -1605,7 +1624,10 @@ impl Runner for Db {
                             .query_async::<_, ()>(&mut conn)
                             .await
                             .unwrap();
-                        return Some(serde_json::from_str(&vec[0]).unwrap());
+                        return Some(OrderedQueuedTask{
+                            score: vec[1].parse().unwrap(),
+                            task: serde_json::from_str(&vec[0]).unwrap()
+                        });
                     }
                 } else {
                     println!("{:#?}", res.unwrap_err().detail());
@@ -1618,11 +1640,12 @@ impl Runner for Db {
     }
 
     #[timed(duration(printer = "debug!"))]
-    fn push_priority_queue(&mut self, queued_task: QueuedTask) {
+    fn push_priority_queue(&mut self, queued_task: OrderedQueuedTask) {
+        // let depth = self.get_task_depth(dag_run_id, &queued_task.task_id);
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 // transaction_async!(&mut self.redis.get().await.unwrap(), &["queue_watch"], {
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
 
                 // let mut pipe = redis::pipe();
                 // let pipe_ref = pipe.atomic();
@@ -1633,8 +1656,8 @@ impl Runner for Db {
                 // );
                 cmd("ZADD")
                     .arg(&format!("queue"))
-                    .arg(dbg!(queued_task.depth as f64))
-                    .arg(dbg!(serde_json::to_string(&queued_task).unwrap()))
+                    .arg(dbg!(queued_task.score))
+                    .arg(dbg!(serde_json::to_string(&queued_task.task).unwrap()))
                     .query_async::<_, f64>(&mut conn)
                     .await
                     .unwrap();
@@ -1681,7 +1704,7 @@ impl Runner for Db {
     fn priority_queue_len(&self) -> usize {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
 
                 cmd("ZCARD")
                     .arg("queue")
@@ -1695,7 +1718,7 @@ impl Runner for Db {
     fn get_task_depth(&mut self, dag_run_id: &usize, task_id: &usize) -> usize {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
 
                 // cmd("GET")
                 //     .arg(&format!("depth:{dag_run_id}:{task_id}"))
@@ -1729,7 +1752,7 @@ impl Runner for Db {
     fn set_task_depth(&mut self, dag_run_id: &usize, task_id: &usize, depth: usize) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
 
                 cmd("SET")
                     .arg(&[format!("depth:{dag_run_id}:{task_id}"), depth.to_string()])
@@ -1745,14 +1768,14 @@ impl Runner for Db {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 let depth = self.get_task_depth(dag_run_id, task_id);
-                let mut conn = self.redis.get().await.unwrap();
+                let mut conn = self.pool.get().await.unwrap();
 
                 cmd("ZADD")
                     .arg(&[
                         "queue".to_string(),
                         depth.to_string(),
                         serde_json::to_string(&QueuedTask {
-                            depth,
+                            // depth,
                             task_id: *task_id,
                             run_id: *dag_run_id,
                             dag_name: self.get_dag_name(),

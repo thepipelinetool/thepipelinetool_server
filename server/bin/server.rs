@@ -17,7 +17,7 @@ use serde_json::{json, Value};
 use server::{_get_all_task_results, _get_hash, get_redis_pool};
 use server::{
     _get_all_tasks, _get_dags, _get_default_edges, _get_default_tasks, _get_options, _get_task,
-    _get_task_result, _get_task_status, _trigger_run, db::Db,
+    _get_task_result, _get_task_status, _trigger_run, redis_runner::RedisRunner,
 };
 // use sqlx::Pool;
 use thepipelinetool::prelude::*;
@@ -38,7 +38,7 @@ async fn ping() -> &'static str {
 
 #[timed(duration(printer = "debug!"))]
 async fn get_runs(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Json<Value> {
-    json!(Db::get_runs(&dag_name, pool)
+    json!(RedisRunner::get_runs(&dag_name, pool)
         .await
         .iter()
         .map(|r| json!({
@@ -58,7 +58,7 @@ async fn get_runs_with_tasks(
 
     dbg!(1);
 
-    for run in Db::get_runs(&dag_name, pool.clone()).await.iter() {
+    for run in RedisRunner::get_runs(&dag_name, pool.clone()).await.iter() {
         let mut tasks = json!({});
         for task in _get_all_tasks(run.run_id, pool.clone()) {
             tasks[format!("{}_{}", task.function_name, task.id)] = json!(task);
@@ -131,7 +131,7 @@ async fn get_task_log(
     Path((run_id, task_id, attempt)): Path<(usize, usize, usize)>,
     State(pool): State<Pool>,
 ) -> String {
-    let mut runner = Db::new("", &[], &HashSet::new(), pool);
+    let mut runner = RedisRunner::new("", &[], &HashSet::new(), pool);
     runner.get_log(&run_id, &task_id, attempt)
     // json!(_get_task_result(run_id, task_id, pool)).into()
 }
@@ -152,7 +152,7 @@ async fn get_dags() -> Json<Value> {
 }
 
 async fn get_run_graph(Path(run_id): Path<usize>, State(pool): State<Pool>) -> Json<Value> {
-    let mut runner = Db::new("", &[], &HashSet::new(), pool);
+    let mut runner = RedisRunner::new("", &[], &HashSet::new(), pool);
     let graph = runner.get_graphite_graph(&run_id);
     json!(graph).into()
 }
@@ -178,7 +178,7 @@ async fn _trigger_local_run(Path(dag_name): Path<String>, State(pool): State<Poo
     let nodes: Vec<Task> = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
     let edges: HashSet<(usize, usize)> =
         serde_json::from_str(&_get_default_edges(&dag_name).await).unwrap();
-    let mut runner = Db::new(&dag_name, &nodes, &edges, pool);
+    let mut runner = RedisRunner::new(&dag_name, &nodes, &edges, pool);
     let dag_run_id = runner.enqueue_run(&dag_name, &_get_hash(&dag_name).await, Utc::now());
     // runner.run(&dag_run_id, 1, Arc::new(Mutex::new(0)));
     // todo!()
@@ -230,10 +230,10 @@ async fn _trigger_local_run(Path(dag_name): Path<String>, State(pool): State<Poo
         runner.work(&dag_run_id, queued_task);
         // dbg!(runner.print_priority_queue());
 
-        if runner.is_completed(&dag_run_id) {
-            runner.mark_finished(&dag_run_id);
-            break;
-        }
+        // if runner.is_completed(&dag_run_id) {
+        //     runner.mark_finished(&dag_run_id);
+        //     break;
+        // }
     }
 }
 
@@ -245,6 +245,10 @@ async fn main() {
 
     // let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
     let pool = get_redis_pool();
+
+    // pipe().
+
+    // return;
 
     // Db::init_tables(pool.clone()).await;
 

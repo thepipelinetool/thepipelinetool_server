@@ -6,7 +6,7 @@ use std::{
 // use thepipelinetool::prelude::*;
 
 // use runner::{local::hash_dag, DefRunner, Runner};
-use server::{_get_dags, _get_default_edges, _get_default_tasks, _get_hash, db::Db, get_redis_pool};
+use server::{_get_dags, _get_default_edges, _get_default_tasks, _get_hash, redis_runner::RedisRunner, get_redis_pool};
 use thepipelinetool::prelude::*;
 use tokio::time::sleep;
 
@@ -38,9 +38,9 @@ async fn main() {
         edges_hashmap.insert(dag_name.clone(), edges);
         // }
     }
-    let mut dummy = Db::new("", &[], &HashSet::new(), pool.clone());
+    let mut dummy = RedisRunner::new("", &[], &HashSet::new(), pool.clone());
 
-    loop {
+    // loop {
     //     // let pool = pool.clone();
     //     dbg!(2);
         // let runner = runner.clone();
@@ -49,29 +49,30 @@ async fn main() {
         // dbg!(2);
 
         // runner.lock().unwrap().run_dag_local();
-        if let Some(queued_task) = dummy.pop_priority_queue() {
-            let dag_name = &queued_task.dag_name;
-            let run_id = queued_task.run_id;
+        if let Some(ordered_queued_task) = dummy.pop_priority_queue() {
+            // let (depth, queued_task) = (ordered_queued_task.score, ordered_queued_task.task);
+            let dag_name = &ordered_queued_task.task.dag_name;
+            let run_id = ordered_queued_task.task.run_id;
 
             let nodes = node_hashmap.get(dag_name).unwrap();
             // .or_insert(serde_json::from_value(_get_default_tasks(&dag_name)).unwrap())
             // .to_vec();
-            let edges: &HashSet<(usize, usize)> = edges_hashmap.get(dag_name).unwrap();
+            let edges = edges_hashmap.get(dag_name).unwrap();
             dbg!(&dag_name, nodes.len(), edges.len());
-            let mut runner = Db::new(dag_name, nodes, edges, pool.clone());
-            dbg!(1);
-            runner.work(&run_id, queued_task);
+            let mut runner = RedisRunner::new(dag_name, nodes, edges, pool.clone());
+            // dbg!(1);
+            runner.work(&run_id, ordered_queued_task);
 
-            if runner.is_completed(&run_id) {
-                runner.mark_finished(&run_id);
-            }
+            // if runner.is_completed(&run_id) {
+            //     runner.mark_finished(&run_id);
+            // }
         } else {
             sleep(Duration::new(2, 0)).await;
         }
             // break;
         
 
-    }
+    // }
     // dbg!(10);
 
 

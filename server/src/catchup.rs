@@ -6,7 +6,7 @@ use saffron::Cron;
 // use task::task::Task;
 use thepipelinetool::prelude::*;
 
-use crate::{_get_dags, _get_hash, _get_options, _trigger_run, db::Db};
+use crate::{_get_dags, _get_hash, _get_options, _trigger_run, redis_runner::RedisRunner};
 
 pub fn catchup(up_to: &DateTime<Utc>, pool: Pool) {
     let up_to: DateTime<Utc> = *up_to;
@@ -62,7 +62,7 @@ pub fn catchup(up_to: &DateTime<Utc>, pool: Pool) {
                                     }
                                 }
                                 // check if date is already in db
-                                if Db::contains_logical_date(
+                                if RedisRunner::contains_logical_date(
                                     &dag_name,
                                     &_get_hash(&dag_name).await,
                                     time,
