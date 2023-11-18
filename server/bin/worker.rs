@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    time::Duration, sync::{Arc, Mutex},
+    time::Duration,
 };
 
 // use thepipelinetool::prelude::*;
@@ -15,14 +15,13 @@ async fn main() {
     std::env::set_var("RUST_LOG", "debug");
     // initialize the logger in the environment? not really sure.
     env_logger::init();
+    let pool = get_redis_pool();
 
     let mut node_hashmap: HashMap<String, Vec<Task>> = HashMap::new();
     let mut edges_hashmap: HashMap<String, HashSet<(usize, usize)>> = HashMap::new();
     let mut hash_hashmap: HashMap<String, String> = HashMap::new();
     // let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
-    let pool = get_redis_pool();
     let dags = &_get_dags();
-    let pool = get_redis_pool();
 
     for dag_name in dags {
         // let all_runs = Db::get_all_runs(dag_name, pool.clone()).await;
@@ -33,7 +32,7 @@ async fn main() {
             serde_json::from_str(&_get_default_edges(dag_name).await).unwrap();
         // dbg!(run_id, &dag_id);
 
-        hash_hashmap.insert(dag_name.clone(), _get_hash(&dag_name).await.to_string());
+        hash_hashmap.insert(dag_name.clone(), _get_hash(dag_name).await.to_string());
 
         node_hashmap.insert(dag_name.clone(), nodes);
         edges_hashmap.insert(dag_name.clone(), edges);
@@ -59,7 +58,7 @@ async fn main() {
             // .to_vec();
             let edges: &HashSet<(usize, usize)> = edges_hashmap.get(dag_name).unwrap();
             dbg!(&dag_name, nodes.len(), edges.len());
-            let mut runner = Db::new(&dag_name, nodes, edges, pool.clone());
+            let mut runner = Db::new(dag_name, nodes, edges, pool.clone());
             dbg!(1);
             runner.work(&run_id, queued_task);
 

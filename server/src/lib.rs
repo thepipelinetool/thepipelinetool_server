@@ -1,21 +1,17 @@
 use std::{
-    borrow::Cow,
     collections::{HashMap, HashSet},
     env,
     fs,
     io::ErrorKind,
     path::PathBuf,
-    str::FromStr,
     sync::{Arc, OnceLock},
-    // sync::{Arc, OnceLock},
-    time::Duration,
 };
 
 use chrono::{DateTime, Utc};
-use db::{Db, Run};
+use db::Db;
 use deadpool::Runtime;
-use deadpool_redis::{Config, Connection, Manager, Pool};
-use log::{debug, LevelFilter};
+use deadpool_redis::{Config, Pool};
+use log::debug;
 // use redis::Connection;
 // use sqlx::{
 //     postgres::{PgConnectOptions, PgPoolOptions},

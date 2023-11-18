@@ -1,11 +1,11 @@
 use deadpool_redis::{redis::cmd, Pool};
 use log::debug;
-use serde::Serializer;
 use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 // use redis::{Commands, Connection};
 // use serde_json::Value;
+use std::str::FromStr;
 use thepipelinetool::prelude::*;
 
 // use task::task_options::TaskOptions;
@@ -30,7 +30,6 @@ pub struct Db {
 
 use timed::timed;
 
-use crate::{get_redis_pool, transaction_async};
 // use task::task::Task;
 // use task::task_options::TaskOptions;
 // use task::task_result::TaskResult;
@@ -821,7 +820,7 @@ impl Runner for Db {
                 let mut conn = self.redis.get().await.unwrap();
 
                 let run_id = cmd("INCR")
-                    .arg(&format!("run"))
+                    .arg("run")
                     .query_async::<_, usize>(&mut conn)
                     .await
                     .unwrap();
@@ -1572,7 +1571,7 @@ impl Runner for Db {
                 let mut conn = self.redis.get().await.unwrap();
 
                 let res = cmd("ZPOPMIN")
-                    .arg(&[format!("queue"), "1".to_string()]) // TODO timeout arg
+                    .arg(&["queue".to_string(), "1".to_string()]) // TODO timeout arg
                     .query_async::<_, Vec<String>>(&mut conn)
                     .await;
 
@@ -1602,7 +1601,7 @@ impl Runner for Db {
                         dbg!(&vec);
 
                         cmd("SADD")
-                            .arg(&[format!("tmpqueue"), vec[0].to_string()])
+                            .arg(&["tmpqueue".to_string(), vec[0].to_string()])
                             .query_async::<_, ()>(&mut conn)
                             .await
                             .unwrap();
@@ -1685,7 +1684,7 @@ impl Runner for Db {
                 let mut conn = self.redis.get().await.unwrap();
 
                 cmd("ZCARD")
-                    .arg(&format!("queue"))
+                    .arg("queue")
                     .query_async::<_, usize>(&mut conn)
                     .await
                     .unwrap()
@@ -1750,7 +1749,7 @@ impl Runner for Db {
 
                 cmd("ZADD")
                     .arg(&[
-                        format!("queue"),
+                        "queue".to_string(),
                         depth.to_string(),
                         serde_json::to_string(&QueuedTask {
                             depth,

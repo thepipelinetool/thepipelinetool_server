@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use std::str::from_utf8;
-use std::sync::{Arc, Mutex};
 // use std::str::from_utf8;
 
 use axum::extract::State;
@@ -18,8 +17,7 @@ use serde_json::{json, Value};
 use server::{_get_all_task_results, _get_hash, get_redis_pool};
 use server::{
     _get_all_tasks, _get_dags, _get_default_edges, _get_default_tasks, _get_options, _get_task,
-    _get_task_result, _get_task_status, _trigger_run, catchup::catchup, db::Db,
-    scheduler::scheduler,
+    _get_task_result, _get_task_status, _trigger_run, db::Db,
 };
 // use sqlx::Pool;
 use thepipelinetool::prelude::*;
@@ -92,7 +90,7 @@ async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
 async fn get_default_task(Path((dag_name, task_id)): Path<(String, usize)>) -> Json<Value> {
     let v: Vec<Task> = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
 
-    Json(json!(v.iter().filter(|t| t.id == task_id).next().unwrap()))
+    Json(json!(v.iter().find(|t| t.id == task_id).unwrap()))
 }
 
 async fn get_all_tasks(Path(run_id): Path<usize>, State(pool): State<Pool>) -> Json<Value> {
@@ -133,7 +131,7 @@ async fn get_task_log(
     Path((run_id, task_id, attempt)): Path<(usize, usize, usize)>,
     State(pool): State<Pool>,
 ) -> String {
-    let mut runner = Db::new(&"", &[], &HashSet::new(), pool);
+    let mut runner = Db::new("", &[], &HashSet::new(), pool);
     runner.get_log(&run_id, &task_id, attempt)
     // json!(_get_task_result(run_id, task_id, pool)).into()
 }
@@ -154,7 +152,7 @@ async fn get_dags() -> Json<Value> {
 }
 
 async fn get_run_graph(Path(run_id): Path<usize>, State(pool): State<Pool>) -> Json<Value> {
-    let mut runner = Db::new(&"", &[], &HashSet::new(), pool);
+    let mut runner = Db::new("", &[], &HashSet::new(), pool);
     let graph = runner.get_graphite_graph(&run_id);
     json!(graph).into()
 }
@@ -206,12 +204,7 @@ async fn _trigger_local_run(Path(dag_name): Path<String>, State(pool): State<Poo
     for task in &default_tasks {
         let mut visited = HashSet::new();
         let mut path = Vec::new();
-        let deps = runner.get_circular_dependencies(
-            &dag_run_id,
-            task.id,
-            &mut visited,
-            &mut path,
-        );
+        let deps = runner.get_circular_dependencies(&dag_run_id, task.id, &mut visited, &mut path);
 
         if let Some(deps) = deps {
             panic!("{:?}", deps);
@@ -233,19 +226,8 @@ async fn _trigger_local_run(Path(dag_name): Path<String>, State(pool): State<Poo
     //     thread::spawn(move || {
     //         let runner = runner.clone();
 
-    loop {
-        // dbg!(2);
-        // let runner = runner.clone();
-
-        // let mut runner = runner.lock().unwrap();
-        // dbg!(2);
-
-        // runner.lock().unwrap().run_dag_local();
-        if let Some(queued_task) = runner.pop_priority_queue() {
-            runner.work(&dag_run_id, queued_task);
-        } else {
-            break;
-        }
+    while let Some(queued_task) = runner.pop_priority_queue() {
+        runner.work(&dag_run_id, queued_task);
         // dbg!(runner.print_priority_queue());
 
         if runner.is_completed(&dag_run_id) {
