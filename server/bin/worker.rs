@@ -38,13 +38,13 @@ async fn main() {
 
     loop {
         if let Some(ordered_queued_task) = dummy.pop_priority_queue() {
-            let dag_name = &ordered_queued_task.task.dag_name;
-            let run_id = ordered_queued_task.task.run_id;
+            let dag_name = &ordered_queued_task.queued_task.dag_name;
+            let run_id = ordered_queued_task.queued_task.run_id;
 
             let nodes = node_hashmap.get(dag_name).unwrap();
             let edges = edges_hashmap.get(dag_name).unwrap();
             let mut runner = RedisRunner::new(dag_name, nodes, edges, pool.clone());
-            runner.work(&run_id, ordered_queued_task);
+            runner.work(run_id, ordered_queued_task);
         } else {
             sleep(Duration::new(2, 0)).await;
         }
