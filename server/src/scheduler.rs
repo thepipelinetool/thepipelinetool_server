@@ -5,7 +5,6 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-// use sqlx::{Pool, Postgres};
 
 use deadpool_redis::Pool;
 use saffron::Cron;
@@ -19,7 +18,6 @@ pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool) {
 
     let last_checked: Arc<Mutex<HashMap<String, DateTime<Utc>>>> =
         Arc::new(Mutex::new(HashMap::new()));
-    // let pool = Arc::new(Mutex::new(pool));
 
     tokio::spawn(async move {
         loop {

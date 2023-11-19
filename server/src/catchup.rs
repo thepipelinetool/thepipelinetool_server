@@ -10,7 +10,6 @@ use crate::{_get_dags, _get_hash, _get_options, _trigger_run, redis_runner::Redi
 
 pub fn catchup(up_to: &DateTime<Utc>, pool: Pool) {
     let up_to: DateTime<Utc> = *up_to;
-    // let up_to = up_to.clone();
     tokio::spawn(async move {
         let dags = _get_dags();
 

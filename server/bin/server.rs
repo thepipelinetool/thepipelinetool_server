@@ -246,12 +246,6 @@ async fn main() {
     // let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
     let pool = get_redis_pool();
 
-    // pipe().
-
-    // return;
-
-    // Db::init_tables(pool.clone()).await;
-
     let now = Utc::now();
 
     // catchup(&now, pool.clone());
@@ -284,9 +278,7 @@ async fn main() {
         )
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
-        // .layer()
         .with_state(pool);
-    // .with_state(redis);
 
     axum::Server::bind(&"0.0.0.0:8000".parse().unwrap())
         .serve(app.into_make_service())

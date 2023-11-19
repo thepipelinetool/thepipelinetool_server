@@ -11,11 +11,6 @@ use deadpool::Runtime;
 use deadpool_redis::{Config, Pool};
 use log::debug;
 use redis_runner::RedisRunner;
-// use redis::Connection;
-// use sqlx::{
-//     postgres::{PgConnectOptions, PgPoolOptions},
-//     ConnectOptions, Pool, Postgres,
-// };
 use thepipelinetool::prelude::*;
 use timed::timed;
 use tokio::{process::Command, sync::Mutex};
@@ -27,6 +22,9 @@ pub mod scheduler;
 pub const DAGS_DIR: &str = "./bin";
 
 static TASKS: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
+static HASHES: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
+static EDGES: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
+static OPTIONS: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
 
 #[timed(duration(printer = "debug!"))]
 pub async fn _get_default_tasks(dag_name: &str) -> String {
@@ -42,8 +40,6 @@ pub async fn _get_default_tasks(dag_name: &str) -> String {
             .await
             .expect("failed to run");
 
-        // String::from_utf8_lossy(&output.stdout).to_string()
-
         tasks.insert(
             dag_name.to_owned(),
             String::from_utf8_lossy(&output.stdout).to_string(),
@@ -52,8 +48,6 @@ pub async fn _get_default_tasks(dag_name: &str) -> String {
 
     tasks.get(dag_name).unwrap().to_string()
 }
-
-static HASHES: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
 
 #[timed(duration(printer = "debug!"))]
 pub async fn _get_hash(dag_name: &str) -> String {
@@ -68,7 +62,6 @@ pub async fn _get_hash(dag_name: &str) -> String {
             .output()
             .await
             .expect("failed to run");
-        // String::from_utf8_lossy(&output.stdout).to_string()
 
         hashes.insert(
             dag_name.to_owned(),
@@ -78,30 +71,6 @@ pub async fn _get_hash(dag_name: &str) -> String {
 
     hashes.get(dag_name).unwrap().to_string()
 }
-
-// #[timed(duration(printer = "debug!"))]
-// pub async fn _get_default_tasks(dag_name: &str) -> Cow<str> {
-//     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
-//         .arg("tasks")
-//         .output()
-//         .await
-//         .expect("failed to run");
-
-//     Cow::Owned(String::from_utf8_lossy(&output.stdout).to_string())
-// }
-
-// #[timed(duration(printer = "debug!"))]
-// pub async fn _get_hash(dag_name: &str) -> Cow<str> {
-//     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
-//         .arg("hash")
-//         .output()
-//         .await
-//         .expect("failed to run");
-
-//     Cow::Owned(String::from_utf8_lossy(&output.stdout).to_string())
-// }
-
-static EDGES: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
 
 #[timed(duration(printer = "debug!"))]
 pub async fn _get_default_edges(dag_name: &str) -> String {
@@ -126,19 +95,6 @@ pub async fn _get_default_edges(dag_name: &str) -> String {
     edges.get(dag_name).unwrap().to_string()
 }
 
-// #[timed(duration(printer = "debug!"))]
-// pub async fn _get_default_edges(dag_name: &str) -> Cow<str> {
-//     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
-//         .arg("edges")
-//         .output()
-//         .await
-//         .expect("failed to run");
-
-//     Cow::Owned(String::from_utf8_lossy(&output.stdout).to_string())
-// }
-
-static OPTIONS: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
-
 #[timed(duration(printer = "debug!"))]
 pub async fn _get_options(dag_name: &str) -> String {
     let mut options = OPTIONS
@@ -162,17 +118,6 @@ pub async fn _get_options(dag_name: &str) -> String {
     options.get(dag_name).unwrap().to_string()
 }
 
-// #[timed(duration(printer = "debug!"))]
-// pub async fn _get_options(dag_name: &str) -> Cow<str> {
-//     let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
-//         .arg("options")
-//         .output()
-//         .await
-//         .expect("failed to run");
-
-//     Cow::Owned(String::from_utf8_lossy(&output.stdout).to_string())
-// }
-
 #[timed(duration(printer = "debug!"))]
 pub fn _get_all_tasks(run_id: usize, pool: Pool) -> Vec<Task> {
     let runner = RedisRunner::new("", &[], &HashSet::new(), pool);
@@ -185,11 +130,9 @@ pub fn _get_task(run_id: usize, task_id: usize, pool: Pool) -> Task {
     runner.get_task_by_id(&run_id, &task_id)
 }
 
-// #[timed(duration(printer = "debug!"))]
+#[timed(duration(printer = "debug!"))]
 pub async fn _get_all_task_results(run_id: usize, task_id: usize, pool: Pool) -> Vec<TaskResult> {
-    // let runner = Db::new("", &[], &HashSet::new(), pool);
     RedisRunner::get_all_results(run_id, task_id, pool).await
-    // todo!()
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -256,26 +199,6 @@ pub async fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>, pool: Poo
     );
 }
 
-// fn get_db_url() -> String {
-//     env::var("POSTGRES_URL")
-//         .unwrap_or("postgres://postgres:example@0.0.0.0:5432".to_string())
-//         .to_string()
-// }
-
-// #[timed(duration(printer = "debug!"))]
-// pub async fn get_client() -> Pool<Postgres> {
-//     let options = PgConnectOptions::from_str(&get_db_url())
-//         .unwrap()
-//         // .log_statements(LevelFilter::Debug);
-//         .log_slow_statements(LevelFilter::Debug, Duration::new(0, 500_000_000));
-
-//     PgPoolOptions::new()
-//         // .max_connections(max)
-//         .connect_with(options)
-//         .await
-//         .unwrap()
-// }
-
 fn get_redis_url() -> String {
     env::var("REDIS_URL")
         .unwrap_or("redis://0.0.0.0:6379".to_string())
@@ -286,30 +209,25 @@ fn get_redis_url() -> String {
 pub fn get_redis_pool() -> Pool {
     let cfg = Config::from_url(get_redis_url());
     cfg.create_pool(Some(Runtime::Tokio1)).unwrap()
-    // let client = redis::Client::open(get_redis_url()).unwrap();
-    // client.get_connection().unwrap()
 }
 
-// use deadpool_redis::redis;
+// #[macro_export]
+// macro_rules! transaction_async {
+//     ($conn:expr, $keys:expr, $body:expr) => {
+//         loop {
+//             redis::cmd("WATCH")
+//                 .arg($keys)
+//                 .query_async::<_, String>($conn)
+//                 .await
+//                 .unwrap();
 
-/// Simplifies async Redis transactions.
-#[macro_export]
-macro_rules! transaction_async {
-    ($conn:expr, $keys:expr, $body:expr) => {
-        loop {
-            redis::cmd("WATCH")
-                .arg($keys)
-                .query_async::<_, String>($conn)
-                .await
-                .unwrap();
-
-            if let Some(response) = $body {
-                redis::cmd("UNWATCH")
-                    .query_async::<_, String>($conn)
-                    .await
-                    .unwrap();
-                break response;
-            }
-        }
-    };
-}
+//             if let Some(response) = $body {
+//                 redis::cmd("UNWATCH")
+//                     .query_async::<_, String>($conn)
+//                     .await
+//                     .unwrap();
+//                 break response;
+//             }
+//         }
+//     };
+// }
