@@ -6,6 +6,7 @@ use std::{
 // use thepipelinetool::prelude::*;
 
 // use runner::{local::hash_dag, DefRunner, Runner};
+use server::DAGS_DIR;
 use server::{
     _get_dags, _get_default_edges, _get_default_tasks, _get_hash, get_redis_pool,
     redis_runner::RedisRunner,
@@ -38,13 +39,17 @@ async fn main() {
 
     loop {
         if let Some(ordered_queued_task) = dummy.pop_priority_queue() {
-            let dag_name = &ordered_queued_task.queued_task.dag_name;
+            let dag_name = &ordered_queued_task.queued_task.dag_name.clone();
             let run_id = ordered_queued_task.queued_task.run_id;
 
             let nodes = node_hashmap.get(dag_name).unwrap();
             let edges = edges_hashmap.get(dag_name).unwrap();
             let mut runner = RedisRunner::new(dag_name, nodes, edges, pool.clone());
-            runner.work(run_id, ordered_queued_task);
+            runner.work(
+                run_id,
+                ordered_queued_task,
+                &format!("{DAGS_DIR}/{dag_name}"),
+            );
         } else {
             sleep(Duration::new(2, 0)).await;
         }

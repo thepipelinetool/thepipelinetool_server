@@ -132,7 +132,7 @@ impl Runner for RedisRunner {
     }
 
     #[timed(duration(printer = "debug!"))]
-    fn handle_log(
+    fn get_log_handle_closure(
         &mut self,
         run_id: usize,
         task_id: usize,
@@ -451,9 +451,9 @@ impl Runner for RedisRunner {
     fn append_new_task_and_set_status_to_pending(
         &mut self,
         run_id: usize,
-        function_name: String,
-        template_args: serde_json::Value,
-        options: TaskOptions,
+        function_name: &str,
+        template_args: &Value,
+        options: &TaskOptions,
         lazy_expand: bool,
         is_dynamic: bool,
         is_branch: bool,
@@ -471,9 +471,9 @@ impl Runner for RedisRunner {
 
                 let task = Task {
                     id: task_id,
-                    function_name,
-                    template_args,
-                    options,
+                    function_name: function_name.to_owned(),
+                    template_args: template_args.to_owned(),
+                    options: options.to_owned(),
                     lazy_expand,
                     is_dynamic,
                     is_branch,
