@@ -30,7 +30,7 @@ pub fn _get_default_tasks(dag_name: &str) -> Vec<Task> {
 
         tasks.insert(
             dag_name.to_owned(),
-            serde_json::from_str(&String::from_utf8_lossy(&output.stdout).to_string()).unwrap(),
+            serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap(),
         );
     }
 
@@ -72,7 +72,7 @@ pub fn _get_default_edges(dag_name: &str) -> HashSet<(usize, usize)> {
 
         edges.insert(
             dag_name.to_owned(),
-            serde_json::from_str(&String::from_utf8_lossy(&output.stdout).to_string()).unwrap(),
+            serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap(),
         );
     }
 
@@ -93,7 +93,7 @@ pub fn _get_options(dag_name: &str) -> DagOptions {
 
         options.insert(
             dag_name.to_owned(),
-            serde_json::from_str(&String::from_utf8_lossy(&output.stdout).to_string()).unwrap(),
+            serde_json::from_str(&String::from_utf8_lossy(&output.stdout)).unwrap(),
         );
     }
 
