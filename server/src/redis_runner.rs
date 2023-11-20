@@ -120,7 +120,7 @@ impl Runner for RedisRunner {
             tokio::runtime::Handle::current().block_on(async {
                 let mut conn = self.pool.get().await.unwrap();
                 cmd("LRANGE")
-                    .arg(format!("{LOG_KEY}:{run_id}:{task_id}{attempt}"))
+                    .arg(format!("{LOG_KEY}:{run_id}:{task_id}:{attempt}"))
                     .arg(0)
                     .arg(-1)
                     .query_async::<_, Vec<String>>(&mut conn)
