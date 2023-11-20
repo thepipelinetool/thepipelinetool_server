@@ -14,7 +14,7 @@ use log::debug;
 // };
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
-use server::{_get_all_task_results, _get_hash, get_redis_pool};
+use server::{_get_all_task_results, get_redis_pool};
 use server::{
     _get_all_tasks, _get_dags, _get_default_edges, _get_default_tasks, _get_options, _get_task,
     _get_task_result, _get_task_status, _trigger_run, redis_runner::RedisRunner,
