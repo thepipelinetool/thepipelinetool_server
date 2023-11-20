@@ -558,21 +558,21 @@ impl Runner for RedisRunner {
         })
     }
 
-    #[timed(duration(printer = "debug!"))]
-    fn push_priority_queue(&mut self, queued_task: OrderedQueuedTask) {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                let mut conn = self.pool.get().await.unwrap();
-                cmd("ZADD")
-                    .arg("queue")
-                    .arg(queued_task.score)
-                    .arg(serde_json::to_string(&queued_task.queued_task).unwrap())
-                    .query_async::<_, f64>(&mut conn)
-                    .await
-                    .unwrap();
-            });
-        });
-    }
+    // #[timed(duration(printer = "debug!"))]
+    // fn push_priority_queue(&mut self, queued_task: OrderedQueuedTask) {
+    //     tokio::task::block_in_place(|| {
+    //         tokio::runtime::Handle::current().block_on(async {
+    //             let mut conn = self.pool.get().await.unwrap();
+    //             cmd("ZADD")
+    //                 .arg("queue")
+    //                 .arg(queued_task.score)
+    //                 .arg(serde_json::to_string(&queued_task.queued_task).unwrap())
+    //                 .query_async::<_, f64>(&mut conn)
+    //                 .await
+    //                 .unwrap();
+    //         });
+    //     });
+    // }
 
     fn get_task_depth(&mut self, run_id: usize, task_id: usize) -> usize {
         tokio::task::block_in_place(|| {

@@ -148,7 +148,7 @@ async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
     let nodes: Vec<Task> = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
     let edges: HashSet<(usize, usize)> =
         serde_json::from_str(&_get_default_edges(&dag_name).await).unwrap();
-    let mut runner = InMemoryRunner::new("", &nodes, &edges);
+    let mut runner = InMemoryRunner::new(&nodes, &edges);
     runner.enqueue_run("in_memory", "", Utc::now());
     let graph = runner.get_graphite_graph(0);
 
