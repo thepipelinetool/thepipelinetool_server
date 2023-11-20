@@ -8,10 +8,9 @@ use chrono::{DateTime, Utc};
 
 use deadpool_redis::Pool;
 use saffron::Cron;
-use thepipelinetool::prelude::DagOptions;
 use tokio::time::sleep;
 
-use crate::{_get_dags, _get_hash, _get_options, _trigger_run, redis_runner::RedisRunner};
+use crate::{_get_dags, _get_hash, _trigger_run, redis_runner::RedisRunner, statics::_get_options};
 
 pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool) {
     let up_to_initial = *up_to;
@@ -28,8 +27,7 @@ pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool) {
                 let pool = pool.clone();
 
                 tokio::spawn(async move {
-                    let options: DagOptions =
-                        serde_json::from_str(&_get_options(&dag_name).await).unwrap();
+                    let options = _get_options(&dag_name);
                     let up_to = **last_checked
                         .lock()
                         .unwrap()
@@ -80,7 +78,7 @@ pub fn scheduler(up_to: &DateTime<Utc>, pool: Pool) {
                                     // check if date is already in db
                                     if RedisRunner::contains_logical_date(
                                         &dag_name,
-                                        &_get_hash(&dag_name).await,
+                                        &_get_hash(&dag_name),
                                         time,
                                         pool.clone(),
                                     )

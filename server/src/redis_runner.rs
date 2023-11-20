@@ -15,6 +15,8 @@ pub struct RedisRunner {
 
 use timed::timed;
 
+use crate::statics::{_get_default_edges, _get_default_tasks};
+
 #[derive(Serialize, Deserialize)]
 pub struct Run {
     pub run_id: usize,
@@ -48,6 +50,19 @@ impl RedisRunner {
             name: name.into(),
             edges: edges.clone(),
             nodes: nodes.to_vec(),
+            pool,
+        }
+    }
+
+    #[timed(duration(printer = "debug!"))]
+    pub fn from_local_dag(name: &str, pool: Pool) -> Self {
+        let nodes = _get_default_tasks(name);
+        let edges = _get_default_edges(name);
+
+        Self {
+            name: name.into(),
+            edges,
+            nodes,
             pool,
         }
     }

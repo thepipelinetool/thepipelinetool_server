@@ -1,37 +1,25 @@
-use std::collections::HashSet;
 use std::str::from_utf8;
-// use std::str::from_utf8;
-
 use axum::extract::State;
 use axum::{extract::Path, http::Method, Json, Router};
 use chrono::Utc;
 use deadpool_redis::Pool;
 use log::debug;
-
-// use runner::{
-//     local::{hash_dag, LocalRunner},
-//     DefRunner, Runner,
-// };
-// use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
 use server::catchup::catchup;
 use server::scheduler::scheduler;
+use server::statics::{_get_default_edges, _get_default_tasks, _get_options};
 use server::{_get_all_task_results, get_redis_pool};
 use server::{
-    _get_all_tasks, _get_dags, _get_default_edges, _get_default_tasks, _get_options, _get_task,
-    _get_task_result, _get_task_status, _trigger_run, redis_runner::RedisRunner,
+    _get_all_tasks, _get_dags, _get_task, _get_task_result, _get_task_status, _trigger_run,
+    redis_runner::RedisRunner,
 };
-// use sqlx::Pool;
 use thepipelinetool::prelude::*;
 use tower_http::compression::CompressionLayer;
-// use task::task::Task;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use axum::routing::get;
 use timed::timed;
-
-// #[macro_use] extern crate log;
 
 #[timed(duration(printer = "debug!"))]
 async fn ping() -> &'static str {
@@ -76,19 +64,16 @@ async fn get_runs_with_tasks(
 // }
 
 async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
-    serde_json::from_str::<Value>(&_get_default_tasks(&dag_name).await)
+    serde_json::to_value(&_get_default_tasks(&dag_name))
         .unwrap()
         .into()
 }
 
 async fn get_default_task(Path((dag_name, task_id)): Path<(String, usize)>) -> Json<Value> {
-    json!(
-        serde_json::from_str::<Vec<Task>>(&_get_default_tasks(&dag_name).await)
-            .unwrap()
-            .iter()
-            .find(|t| t.id == task_id)
-            .unwrap()
-    )
+    json!(&_get_default_tasks(&dag_name)
+        .iter()
+        .find(|t| t.id == task_id)
+        .unwrap())
     .into()
 }
 
@@ -137,7 +122,7 @@ async fn get_dags() -> Json<Value> {
     let mut result: Vec<Value> = vec![];
 
     for dag_name in _get_dags() {
-        let mut options: Value = serde_json::from_str(&_get_options(&dag_name).await).unwrap();
+        let mut options = serde_json::to_value(_get_options(&dag_name)).unwrap();
         options["dag_name"] = dag_name.into();
         result.push(options);
     }
@@ -150,9 +135,8 @@ async fn get_run_graph(Path(run_id): Path<usize>, State(pool): State<Pool>) -> J
 }
 
 async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
-    let nodes: Vec<Task> = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
-    let edges: HashSet<(usize, usize)> =
-        serde_json::from_str(&_get_default_edges(&dag_name).await).unwrap();
+    let nodes = _get_default_tasks(&dag_name);
+    let edges = _get_default_edges(&dag_name);
     let mut runner = InMemoryRunner::new(&nodes, &edges);
     runner.enqueue_run("in_memory", "", Utc::now());
 
@@ -165,76 +149,11 @@ async fn trigger(Path(dag_name): Path<String>, State(pool): State<Pool>) {
     });
 }
 
-// async fn _trigger_local_run(Path(dag_name): Path<String>, State(pool): State<Pool>) {
-//     let nodes: Vec<Task> = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
-//     let edges: HashSet<(usize, usize)> =
-//         serde_json::from_str(&_get_default_edges(&dag_name).await).unwrap();
-//     let mut runner = RedisRunner::new(&dag_name, &nodes, &edges, pool);
-//     let run_id = runner.enqueue_run(&dag_name, &_get_hash(&dag_name).await, Utc::now());
-//     // runner.run(&run_id, 1, Arc::new(Mutex::new(0)));
-//     // todo!()
-
-//     // let tasks = get_tasks().read().unwrap();
-//     // let edges = get_edges().read().unwrap();
-//     // let sub_matches = matches.subcommand_matches("local").unwrap();
-//     // let mode = sub_matches.get_one::<String>("mode").unwrap();
-
-//     // let max_threads = max(
-//     //     usize::from(std::thread::available_parallelism().unwrap()) - 1,
-//     //     1,
-//     // );
-//     // let thread_count = match mode.as_str() {
-//     //     "--blocking" => 1,
-//     //     "max" => max_threads,
-//     //     _ => mode.parse::<usize>().unwrap(),
-//     // };
-//     let mut runner = InMemoryRunner::new(&dag_name, &nodes, &edges);
-//     // let run_id = runner.enqueue_run(&"", &"", Utc::now());
-//     let default_tasks = runner.get_default_tasks();
-
-//     for task in &default_tasks {
-//         let mut visited = HashSet::new();
-//         let mut path = vec![];
-//         let deps = runner.get_circular_dependencies(run_id, task.id, &mut visited, &mut path);
-
-//         if let Some(deps) = deps {
-//             panic!("{:?}", deps);
-//         }
-//     }
-
-//     // for task in default_tasks {
-//     //     // let depth = self.get_task_depth(run_id, &task.id);
-//     //     // if depth == 0 {
-//     //     runner.enqueue_task(&run_id, &task.id);
-//     //     // }
-//     // }
-//     // dbg!(2);
-//     // let runner = Arc::new(Mutex::new(runner));
-//     // // for _ in 0..thread_count {
-//     //     dbg!(2);
-
-//     //     let runner = runner.clone();
-//     //     thread::spawn(move || {
-//     //         let runner = runner.clone();
-
-//     while let Some(queued_task) = runner.pop_priority_queue() {
-//         runner.work(run_id, queued_task);
-//         // dbg!(runner.print_priority_queue());
-
-//         // if runner.is_completed(&run_id) {
-//         //     runner.mark_finished(&run_id);
-//         //     break;
-//         // }
-//     }
-// }
-
 #[tokio::main]
 async fn main() {
     std::env::set_var("RUST_LOG", "debug");
-    // initialize the logger in the environment? not really sure.
     env_logger::init();
 
-    // let pool: sqlx::Pool<sqlx::Postgres> = get_client().await;
     let pool = get_redis_pool();
 
     let now = Utc::now();
@@ -246,12 +165,10 @@ async fn main() {
         .route("/ping", get(ping))
         //
         .route("/dags", get(get_dags))
-        //
         // .route("/options/:dag_name", get(get_options))
         .route("/runs/:dag_name", get(get_runs))
         .route("/runs_with_tasks/:dag_name", get(get_runs_with_tasks))
         .route("/trigger/:dag_name", get(trigger))
-        //
         .route("/task_status/:run_id/:task_id", get(get_task_status))
         .route("/task_result/:run_id/:task_id", get(get_task_result))
         .route("/log/:run_id/:task_id/:attempt", get(get_task_log))

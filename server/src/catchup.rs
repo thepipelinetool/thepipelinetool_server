@@ -1,12 +1,13 @@
 use chrono::{DateTime, Utc};
 use deadpool_redis::Pool;
-// use runner::local::hash_dag;
 use saffron::Cron;
-// use sqlx::{Pool, Postgres};
-// use task::task::Task;
 use thepipelinetool::prelude::*;
 
-use crate::{_get_dags, _get_hash, _get_options, _trigger_run, redis_runner::RedisRunner};
+use crate::{
+    _get_dags, _trigger_run,
+    redis_runner::RedisRunner,
+    statics::{_get_hash, _get_options},
+};
 
 pub fn catchup(up_to: &DateTime<Utc>, pool: Pool) {
     let up_to: DateTime<Utc> = *up_to;
@@ -17,8 +18,7 @@ pub fn catchup(up_to: &DateTime<Utc>, pool: Pool) {
             let pool = pool.clone();
 
             tokio::spawn(async move {
-                let options: DagOptions =
-                    serde_json::from_str(&_get_options(&dag_name).await).unwrap();
+                let options: DagOptions = _get_options(&dag_name);
                 if let Some(schedule) = &options.schedule {
                     match schedule.parse::<Cron>() {
                         Ok(cron) => {
@@ -63,7 +63,7 @@ pub fn catchup(up_to: &DateTime<Utc>, pool: Pool) {
                                 // check if date is already in db
                                 if RedisRunner::contains_logical_date(
                                     &dag_name,
-                                    &_get_hash(&dag_name).await,
+                                    &_get_hash(&dag_name),
                                     time,
                                     pool.clone(),
                                 )
