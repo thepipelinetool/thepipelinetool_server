@@ -380,7 +380,7 @@ impl Runner for RedisRunner {
                     .unwrap();
                 cmd("SREM")
                     .arg(format!("{DEPENDENCY_KEYS_KEY}:{run_id}:{}", edge.1))
-                    .arg(serde_json::to_string(&(edge.0, "")).unwrap())
+                    .arg(serde_json::to_string(&((edge.0, ""), "")).unwrap())
                     .query_async::<_, ()>(&mut conn)
                     .await
                     .unwrap();
