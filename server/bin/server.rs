@@ -14,6 +14,8 @@ use log::debug;
 // };
 // use runner::{local::hash_dag, DefRunner, Runner};
 use serde_json::{json, Value};
+use server::catchup::catchup;
+use server::scheduler::scheduler;
 use server::{_get_all_task_results, get_redis_pool};
 use server::{
     _get_all_tasks, _get_dags, _get_default_edges, _get_default_tasks, _get_options, _get_task,
@@ -74,15 +76,20 @@ async fn get_runs_with_tasks(
 // }
 
 async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
-    let v: Value = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
-
-    v.into()
+    serde_json::from_str::<Value>(&_get_default_tasks(&dag_name).await)
+        .unwrap()
+        .into()
 }
 
 async fn get_default_task(Path((dag_name, task_id)): Path<(String, usize)>) -> Json<Value> {
-    let v: Vec<Task> = serde_json::from_str(&_get_default_tasks(&dag_name).await).unwrap();
-
-    Json(json!(v.iter().find(|t| t.id == task_id).unwrap()))
+    json!(
+        serde_json::from_str::<Vec<Task>>(&_get_default_tasks(&dag_name).await)
+            .unwrap()
+            .iter()
+            .find(|t| t.id == task_id)
+            .unwrap()
+    )
+    .into()
 }
 
 async fn get_all_tasks(Path(run_id): Path<usize>, State(pool): State<Pool>) -> Json<Value> {
@@ -132,7 +139,6 @@ async fn get_dags() -> Json<Value> {
     for dag_name in _get_dags() {
         let mut options: Value = serde_json::from_str(&_get_options(&dag_name).await).unwrap();
         options["dag_name"] = dag_name.into();
-
         result.push(options);
     }
 
@@ -140,8 +146,7 @@ async fn get_dags() -> Json<Value> {
 }
 
 async fn get_run_graph(Path(run_id): Path<usize>, State(pool): State<Pool>) -> Json<Value> {
-    let graph = RedisRunner::dummy(pool).get_graphite_graph(run_id);
-    json!(graph).into()
+    json!(RedisRunner::dummy(pool).get_graphite_graph(run_id)).into()
 }
 
 async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
@@ -150,9 +155,8 @@ async fn get_default_graph(Path(dag_name): Path<String>) -> Json<Value> {
         serde_json::from_str(&_get_default_edges(&dag_name).await).unwrap();
     let mut runner = InMemoryRunner::new(&nodes, &edges);
     runner.enqueue_run("in_memory", "", Utc::now());
-    let graph = runner.get_graphite_graph(0);
 
-    json!(graph).into()
+    json!(runner.get_graphite_graph(0)).into()
 }
 
 async fn trigger(Path(dag_name): Path<String>, State(pool): State<Pool>) {
