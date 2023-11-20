@@ -41,15 +41,10 @@ const TEMPLATE_ARGS_KEY: &str = "ta";
 impl RedisRunner {
     #[timed(duration(printer = "debug!"))]
     pub fn dummy(pool: Pool) -> Self {
-        Self::new("", &[], &HashSet::new(), pool)
-    }
-
-    #[timed(duration(printer = "debug!"))]
-    pub fn new(name: &str, nodes: &[Task], edges: &HashSet<(usize, usize)>, pool: Pool) -> Self {
         Self {
-            name: name.into(),
-            edges: edges.clone(),
-            nodes: nodes.to_vec(),
+            name: "".into(),
+            edges: HashSet::new(),
+            nodes: vec![],
             pool,
         }
     }
