@@ -3,7 +3,6 @@ use std::time::Duration;
 use chrono::{DateTime, FixedOffset, Utc};
 
 use deadpool_redis::Pool;
-use serde_json::Value;
 use thepipelinetool::prelude::{BlanketRunner, Runner, TaskResult};
 use tokio::time::sleep;
 

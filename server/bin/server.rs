@@ -1,4 +1,3 @@
-use std::str::from_utf8;
 use axum::extract::State;
 use axum::{extract::Path, http::Method, Json, Router};
 use chrono::Utc;
@@ -6,14 +5,15 @@ use deadpool_redis::Pool;
 use log::debug;
 use serde_json::{json, Value};
 use server::catchup::catchup;
-use server::scheduler::scheduler;
 use server::check_timeout::check_timeout;
+use server::scheduler::scheduler;
 use server::statics::{_get_default_edges, _get_default_tasks, _get_options};
 use server::{_get_all_task_results, get_redis_pool};
 use server::{
     _get_all_tasks, _get_dags, _get_task, _get_task_result, _get_task_status, _trigger_run,
     redis_runner::RedisRunner,
 };
+use std::str::from_utf8;
 use thepipelinetool::prelude::*;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
@@ -165,9 +165,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/ping", get(ping))
-        //
         .route("/dags", get(get_dags))
-        // .route("/options/:dag_name", get(get_options))
         .route("/runs/:dag_name", get(get_runs))
         .route("/runs_with_tasks/:dag_name", get(get_runs_with_tasks))
         .route("/trigger/:dag_name", get(trigger))

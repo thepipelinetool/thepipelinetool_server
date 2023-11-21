@@ -69,7 +69,7 @@ impl RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
 
                 cmd("SMEMBERS")
-                    .arg(&"tmpqueue") // TODO timeout arg
+                    .arg("tmpqueue") // TODO timeout arg
                     .query_async::<_, Vec<String>>(&mut conn)
                     .await
                     .unwrap()
@@ -79,7 +79,6 @@ impl RedisRunner {
             })
         })
     }
-
 
     #[timed(duration(printer = "debug!"))]
     pub async fn get_all_results(run_id: usize, task_id: usize, pool: Pool) -> Vec<TaskResult> {
@@ -136,7 +135,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
 
                 cmd("SREM")
-                    .arg(&"tmpqueue") // TODO timeout arg
+                    .arg("tmpqueue") // TODO timeout arg
                     .arg(serde_json::to_string(queued_task).unwrap())
                     .query_async::<_, ()>(&mut conn)
                     .await
@@ -578,7 +577,7 @@ impl Runner for RedisRunner {
                 let mut conn = self.pool.get().await.unwrap();
 
                 let parallel_task_count = cmd("SCARD")
-                    .arg(&"tmpqueue") // TODO timeout arg
+                    .arg("tmpqueue") // TODO timeout arg
                     .query_async::<_, usize>(&mut conn)
                     .await
                     .unwrap();
@@ -692,7 +691,7 @@ impl Runner for RedisRunner {
                             run_id,
                             dag_name: self.get_dag_name(),
                             queued_date: Utc::now().into(),
-                            attempt
+                            attempt,
                         })
                         .unwrap(),
                     ])

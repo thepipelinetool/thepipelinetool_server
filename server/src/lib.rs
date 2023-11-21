@@ -11,10 +11,10 @@ use timed::timed;
 use crate::statics::_get_hash;
 
 pub mod catchup;
+pub mod check_timeout;
 pub mod redis_runner;
 pub mod scheduler;
 pub mod statics;
-pub mod check_timeout;
 
 pub const DAGS_DIR: &str = "./bin";
 
