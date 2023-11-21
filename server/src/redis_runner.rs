@@ -63,6 +63,25 @@ impl RedisRunner {
     }
 
     #[timed(duration(printer = "debug!"))]
+    pub fn get_temp_queue(&self) -> Vec<QueuedTask> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let mut conn = self.pool.get().await.unwrap();
+
+                cmd("SMEMBERS")
+                    .arg(&"tmpqueue") // TODO timeout arg
+                    .query_async::<_, Vec<String>>(&mut conn)
+                    .await
+                    .unwrap()
+                    .iter()
+                    .map(|s| serde_json::from_str(s).unwrap())
+                    .collect()
+            })
+        })
+    }
+
+
+    #[timed(duration(printer = "debug!"))]
     pub async fn get_all_results(run_id: usize, task_id: usize, pool: Pool) -> Vec<TaskResult> {
         let mut conn = pool.get().await.unwrap();
         cmd("LRANGE")
@@ -110,6 +129,22 @@ impl RedisRunner {
 }
 
 impl Runner for RedisRunner {
+    #[timed(duration(printer = "debug!"))]
+    fn remove_from_temp_queue(&self, queued_task: &QueuedTask) {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let mut conn = self.pool.get().await.unwrap();
+
+                cmd("SREM")
+                    .arg(&"tmpqueue") // TODO timeout arg
+                    .arg(serde_json::to_string(queued_task).unwrap())
+                    .query_async::<_, ()>(&mut conn)
+                    .await
+                    .unwrap();
+            })
+        })
+    }
+
     fn delete_task_depth(&mut self, run_id: usize, task_id: usize) {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -542,6 +577,18 @@ impl Runner for RedisRunner {
             tokio::runtime::Handle::current().block_on(async {
                 let mut conn = self.pool.get().await.unwrap();
 
+                let parallel_task_count = cmd("SCARD")
+                    .arg(&"tmpqueue") // TODO timeout arg
+                    .query_async::<_, usize>(&mut conn)
+                    .await
+                    .unwrap();
+
+                let max_threads = 10;
+
+                if parallel_task_count >= max_threads {
+                    return None;
+                }
+
                 let res = cmd("ZPOPMIN")
                     .arg(&["queue".to_string(), "1".to_string()]) // TODO timeout arg
                     .query_async::<_, Vec<String>>(&mut conn)
@@ -629,6 +676,8 @@ impl Runner for RedisRunner {
 
     #[timed(duration(printer = "debug!"))]
     fn enqueue_task(&mut self, run_id: usize, task_id: usize) {
+        let attempt: usize = self.get_attempt_by_task_id(run_id, task_id);
+
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 let depth = self.get_task_depth(run_id, task_id);
@@ -642,6 +691,8 @@ impl Runner for RedisRunner {
                             task_id,
                             run_id,
                             dag_name: self.get_dag_name(),
+                            queued_date: Utc::now().into(),
+                            attempt
                         })
                         .unwrap(),
                     ])

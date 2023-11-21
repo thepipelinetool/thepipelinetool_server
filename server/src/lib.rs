@@ -14,6 +14,7 @@ pub mod catchup;
 pub mod redis_runner;
 pub mod scheduler;
 pub mod statics;
+pub mod check_timeout;
 
 pub const DAGS_DIR: &str = "./bin";
 
@@ -42,6 +43,7 @@ pub fn _get_task_result(run_id: usize, task_id: usize, pool: Pool) -> TaskResult
     RedisRunner::dummy(pool).get_task_result(run_id, task_id)
 }
 
+// TODO cache response to prevent disk read
 #[timed(duration(printer = "debug!"))]
 pub fn _get_dags() -> Vec<String> {
     let paths: Vec<PathBuf> = match fs::read_dir(DAGS_DIR) {

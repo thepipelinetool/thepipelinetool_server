@@ -7,6 +7,7 @@ use log::debug;
 use serde_json::{json, Value};
 use server::catchup::catchup;
 use server::scheduler::scheduler;
+use server::check_timeout::check_timeout;
 use server::statics::{_get_default_edges, _get_default_tasks, _get_options};
 use server::{_get_all_task_results, get_redis_pool};
 use server::{
@@ -160,6 +161,7 @@ async fn main() {
 
     // catchup(&now, pool.clone());
     // scheduler(&now, pool.clone());
+    check_timeout(pool.clone());
 
     let app = Router::new()
         .route("/ping", get(ping))
