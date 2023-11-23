@@ -1,3 +1,26 @@
-# thepipelinetool_server
+<h1 align=center>thepipelinetool_server</h1>
+<!-- <h4 align="center"></h4> -->
 
-`thepipelinetool_server` is an *experimental* pipeline orchestration tool drawing on concepts from Apache Airflow.
+<div align="center">
+  <a href="https://crates.io/crates/thepipelinetool" target="_blank">
+    <img src="https://img.shields.io/crates/v/thepipelinetool" />
+  </a>
+  <a href="https://github.com/thepipelinetool/thepipelinetool/actions/workflows/examples.yml" target="_blank">
+    <img src="https://github.com/thepipelinetool/thepipelinetool/actions/workflows/examples.yml/badge.svg" />
+  </a>
+</div>
+
+Deploy DAGs created using [thepipelinetool](https://github.com/thepipelinetool/thepipelinetool). 
+
+
+## Features
+- Scheduling, catchup, timeouts, and retires
+- View, trigger, monitor logs in the web UI
+- Redis used for fast job queueing
+- Distributed workers
+- *(WIP)* Deploy to kubernetes
+
+
+## License
+This work is dual-licensed under Apache 2.0 and MIT.
+You can choose between one of them if you use this work.
