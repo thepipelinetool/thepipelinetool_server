@@ -1,2 +1,3 @@
+# thepipelinetool_server
 
-cargo install --path thepipelinetool --examples --root . --force --no-track
+`thepipelinetool_server` is an *experimental* pipeline orchestration tool drawing on concepts from Apache Airflow.
