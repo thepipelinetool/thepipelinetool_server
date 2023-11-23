@@ -5,8 +5,8 @@
   <a href="https://crates.io/crates/thepipelinetool" target="_blank">
     <img src="https://img.shields.io/crates/v/thepipelinetool" />
   </a>
-  <a href="https://github.com/thepipelinetool/thepipelinetool/actions/workflows/examples.yml" target="_blank">
-    <img src="https://github.com/thepipelinetool/thepipelinetool/actions/workflows/examples.yml/badge.svg" />
+  <a href="https://github.com/thepipelinetool/thepipelinetool_server/actions/workflows/build.yml" target="_blank">
+    <img src="https://github.com/thepipelinetool/thepipelinetool_server/actions/workflows/build.yml/badge.svg" />
   </a>
 </div>
 
