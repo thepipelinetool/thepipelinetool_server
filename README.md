@@ -14,7 +14,7 @@ Deploy [thepipelinetool](https://github.com/thepipelinetool/thepipelinetool) DAG
 
 
 ## Features
-- Scheduling, catchup, timeouts, and retires
+- Scheduling, catchup, timeouts, and retries
 - View, trigger, monitor logs in the web UI
 - Redis used for fast job queueing
 - Distributed workers
