@@ -10,7 +10,7 @@
   </a>
 </div>
 
-Deploy DAGs created using [thepipelinetool](https://github.com/thepipelinetool/thepipelinetool). 
+Deploy [thepipelinetool](https://github.com/thepipelinetool/thepipelinetool) DAGs. Built using [thepipelinetool_ui](https://github.com/thepipelinetool/thepipelinetool_ui)
 
 
 ## Features
@@ -20,6 +20,8 @@ Deploy DAGs created using [thepipelinetool](https://github.com/thepipelinetool/t
 - Distributed workers
 - *(WIP)* Deploy to kubernetes
 
+## Screenshots
+TODO
 
 ## License
 This work is dual-licensed under Apache 2.0 and MIT.
