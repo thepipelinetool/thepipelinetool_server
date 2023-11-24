@@ -14,16 +14,5 @@
 
 Deploy [thepipelinetool](https://github.com/thepipelinetool/thepipelinetool) DAGs. Built using [thepipelinetool_ui](https://github.com/thepipelinetool/thepipelinetool_ui)
 
-
-## Features
-- Scheduling, catchup, timeouts, and retries
-- View, trigger, monitor tasks in the web UI
-- Redis backend for fast job queueing
-- Distributed workers
-- *(WIP)* Deploy to kubernetes
-
-## Screenshots
-TODO
-
 ## License
 AGPLv3
