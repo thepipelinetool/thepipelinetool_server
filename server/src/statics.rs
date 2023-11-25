@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     process::Command,
-    sync::{Arc, OnceLock},
+    sync::{Arc, OnceLock}, path::PathBuf,
 };
 
 use log::debug;
@@ -9,7 +9,7 @@ use parking_lot::Mutex;
 use thepipelinetool::prelude::{DagOptions, Task};
 use timed::timed;
 
-use crate::DAGS_DIR;
+use crate::{get_dags_dir, _get_dag_path_by_name};
 
 static TASKS: OnceLock<Arc<Mutex<HashMap<String, Vec<Task>>>>> = OnceLock::new();
 static HASHES: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
@@ -23,7 +23,7 @@ pub fn _get_default_tasks(dag_name: &str) -> Vec<Task> {
         .lock();
 
     if !tasks.contains_key(dag_name) {
-        let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+        let output = Command::new(_get_dag_path_by_name(dag_name))
             .arg("tasks")
             .output()
             .expect("failed to run");
@@ -44,7 +44,9 @@ pub fn _get_hash(dag_name: &str) -> String {
         .lock();
 
     if !hashes.contains_key(dag_name) {
-        let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+        let dags_dir = &get_dags_dir();
+        let path: PathBuf = [dags_dir, dag_name].iter().collect();
+        let output = Command::new(path)
             .arg("hash")
             .output()
             .expect("failed to run");
@@ -65,7 +67,7 @@ pub fn _get_default_edges(dag_name: &str) -> HashSet<(usize, usize)> {
         .lock();
 
     if !edges.contains_key(dag_name) {
-        let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+        let output = Command::new(_get_dag_path_by_name(dag_name))
             .arg("edges")
             .output()
             .expect("failed to run");
@@ -86,7 +88,7 @@ pub fn _get_options(dag_name: &str) -> DagOptions {
         .lock();
 
     if !options.contains_key(dag_name) {
-        let output = Command::new(format!("{DAGS_DIR}/{dag_name}"))
+        let output = Command::new(_get_dag_path_by_name(dag_name))
             .arg("options")
             .output()
             .expect("failed to run");

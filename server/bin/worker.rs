@@ -1,5 +1,4 @@
-use server::DAGS_DIR;
-use server::{get_redis_pool, redis_runner::RedisRunner};
+use server::{get_redis_pool, redis_runner::RedisRunner, _get_dag_path_by_name};
 use std::time::Duration;
 use thepipelinetool::prelude::*;
 use tokio::time::sleep;
@@ -15,12 +14,12 @@ async fn main() {
     loop {
         if let Some(ordered_queued_task) = dummy.pop_priority_queue() {
             let dag_name = &ordered_queued_task.queued_task.dag_name.clone();
-
+            
             let mut runner = RedisRunner::from_local_dag(dag_name, pool.clone());
             runner.work(
                 ordered_queued_task.queued_task.run_id,
                 &ordered_queued_task,
-                &format!("{DAGS_DIR}/{dag_name}"),
+                _get_dag_path_by_name(dag_name),
             );
             runner.remove_from_temp_queue(&ordered_queued_task.queued_task);
         } else {

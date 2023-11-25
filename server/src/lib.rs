@@ -16,7 +16,16 @@ pub mod redis_runner;
 pub mod scheduler;
 pub mod statics;
 
-pub const DAGS_DIR: &str = "./bin";
+pub fn _get_dag_path_by_name(dag_name: &str) -> PathBuf {
+    let dags_dir = &get_dags_dir();
+    [dags_dir, dag_name].iter().collect()
+}
+
+pub fn get_dags_dir() -> String {
+    env::var("DAGS_DIR")
+        .unwrap_or("./bin".to_string())
+        .to_string()
+}
 
 #[timed(duration(printer = "debug!"))]
 pub fn _get_all_tasks(run_id: usize, pool: Pool) -> Vec<Task> {
@@ -46,7 +55,7 @@ pub fn _get_task_result(run_id: usize, task_id: usize, pool: Pool) -> TaskResult
 // TODO cache response to prevent disk read
 #[timed(duration(printer = "debug!"))]
 pub fn _get_dags() -> Vec<String> {
-    let paths: Vec<PathBuf> = match fs::read_dir(DAGS_DIR) {
+    let paths: Vec<PathBuf> = match fs::read_dir(get_dags_dir()) {
         Err(e) if e.kind() == ErrorKind::NotFound => vec![],
         Err(e) => panic!("Unexpected Error! {:?}", e),
         Ok(entries) => entries
