@@ -12,7 +12,7 @@
 
 </br>
 
-Deploy [thepipelinetool](https://github.com/thepipelinetool/thepipelinetool) DAGs. Built using [thepipelinetool_ui](https://github.com/thepipelinetool/thepipelinetool_ui)
+Deploy [thepipelinetool](https://github.com/thepipelinetool/thepipelinetool) DAGs. 
 
 ## License
 AGPLv3
