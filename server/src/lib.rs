@@ -16,15 +16,21 @@ pub mod redis_runner;
 pub mod scheduler;
 pub mod statics;
 
-pub fn _get_dag_path_by_name(dag_name: &str) -> PathBuf {
-    let dags_dir = &get_dags_dir();
-    [dags_dir, dag_name].iter().collect()
-}
-
 pub fn get_dags_dir() -> String {
     env::var("DAGS_DIR")
         .unwrap_or("./bin".to_string())
         .to_string()
+}
+
+fn get_redis_url() -> String {
+    env::var("REDIS_URL")
+        .unwrap_or("redis://0.0.0.0:6379".to_string())
+        .to_string()
+}
+
+pub fn _get_dag_path_by_name(dag_name: &str) -> PathBuf {
+    let dags_dir = &get_dags_dir();
+    [dags_dir, dag_name].iter().collect()
 }
 
 #[timed(duration(printer = "debug!"))]
@@ -86,12 +92,6 @@ pub async fn _trigger_run(dag_name: &str, logical_date: DateTime<Utc>, pool: Poo
     let hash = _get_hash(dag_name);
 
     RedisRunner::from_local_dag(dag_name, pool.clone()).enqueue_run(dag_name, &hash, logical_date);
-}
-
-fn get_redis_url() -> String {
-    env::var("REDIS_URL")
-        .unwrap_or("redis://0.0.0.0:6379".to_string())
-        .to_string()
 }
 
 // #[timed(duration(printer = "debug!"))]
