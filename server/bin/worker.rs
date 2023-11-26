@@ -1,4 +1,4 @@
-use server::{get_redis_pool, redis_runner::RedisRunner, _get_dag_path_by_name};
+use server::{_get_dag_path_by_name, get_redis_pool, redis_runner::RedisRunner};
 use std::time::Duration;
 use thepipelinetool::prelude::*;
 use tokio::time::sleep;
@@ -14,7 +14,7 @@ async fn main() {
     loop {
         if let Some(ordered_queued_task) = dummy.pop_priority_queue() {
             let dag_name = &ordered_queued_task.queued_task.dag_name.clone();
-            
+
             let mut runner = RedisRunner::from_local_dag(dag_name, pool.clone());
             runner.work(
                 ordered_queued_task.queued_task.run_id,

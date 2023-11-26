@@ -1,7 +1,8 @@
 use std::{
     collections::{HashMap, HashSet},
+    path::PathBuf,
     process::Command,
-    sync::{Arc, OnceLock}, path::PathBuf,
+    sync::{Arc, OnceLock},
 };
 
 use log::debug;
@@ -9,7 +10,7 @@ use parking_lot::Mutex;
 use thepipelinetool::prelude::{DagOptions, Task};
 use timed::timed;
 
-use crate::{get_dags_dir, _get_dag_path_by_name};
+use crate::{_get_dag_path_by_name, get_dags_dir};
 
 static TASKS: OnceLock<Arc<Mutex<HashMap<String, Vec<Task>>>>> = OnceLock::new();
 static HASHES: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
