@@ -21,12 +21,4 @@ services:
       restart: always
       ports:
         - 6379:6379
-      command: redis-server --save 60 1 --loglevel warning 
-  pgAdmin:
-    container_name: pgAdmin
-    image: dpage/pgadmin4
-    ports:
-      - 8081:80
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
-      - PGADMIN_DEFAULT_PASSWORD=admin
+      command: redis-server --save 60 1 --loglevel warning
