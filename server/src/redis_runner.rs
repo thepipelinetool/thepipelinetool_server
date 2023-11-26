@@ -704,4 +704,29 @@ impl Runner for RedisRunner {
 
     #[timed(duration(printer = "debug!"))]
     fn print_priority_queue(&mut self) {}
+
+    fn take_last_stdout_line(
+        &mut self,
+        run_id: usize,
+        task_id: usize,
+        attempt: usize,
+    ) -> Box<dyn Fn() -> String + Send> {
+        let pool = self.pool.clone();
+        Box::new(move || {
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    let mut conn = pool.get().await.unwrap();
+                    cmd("RPOP")
+                        .arg(format!("{LOG_KEY}:{run_id}:{task_id}:{attempt}"))
+                        .arg(1)
+                        .query_async::<_, Vec<String>>(&mut conn)
+                        .await
+                        .unwrap_or_default()
+                        .first()
+                        .unwrap_or(&"null".into())
+                        .to_string()
+                })
+            })
+        })
+    }
 }
