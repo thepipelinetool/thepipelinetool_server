@@ -28,6 +28,8 @@ jobs:
           context: .
           file: server.Dockerfile
           push: true
+          build-args: |
+            VERSION=${{ steps.get_version.outputs.tag }}
           platforms: linux/amd64, linux/arm64
           tags: ghcr.io/thepipelinetool/server:latest, ghcr.io/thepipelinetool/server:${{ steps.get_version.outputs.tag }}
           cache-from: type=registry,ref=ghcr.io/thepipelinetool/server:buildcache
