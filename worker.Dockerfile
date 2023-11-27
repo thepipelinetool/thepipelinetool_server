@@ -1,6 +1,9 @@
 FROM rust:latest as server_builder
 WORKDIR /
-RUN git clone --depth=1 --branch v0.1.215 https://github.com/thepipelinetool/thepipelinetool.git
+
+ARG VERSION
+
+RUN git clone --depth=1 --branch ${VERSION} https://github.com/thepipelinetool/thepipelinetool.git
 
 WORKDIR /app
 COPY server/src/dummy.rs .

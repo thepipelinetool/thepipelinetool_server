@@ -1,6 +1,9 @@
 FROM rust:latest as server_builder
 WORKDIR /
-RUN git clone --depth=1 --branch v0.1.215 https://github.com/thepipelinetool/thepipelinetool.git
+
+ARG VERSION
+
+RUN git clone --depth=1 --branch ${VERSION} https://github.com/thepipelinetool/thepipelinetool.git
 
 WORKDIR /app
 COPY server/src/dummy.rs .
@@ -17,7 +20,7 @@ RUN cargo install --path . --bin server
 FROM rust:latest
 WORKDIR /server
 
-RUN curl -L -o web.zip https://github.com/thepipelinetool/thepipelinetool_ui/releases/download/2023-11-20/web.zip
+RUN curl -L -o web.zip https://github.com/thepipelinetool/thepipelinetool_ui/releases/download/${VERSION}/web.zip
 RUN unzip web.zip -d temp
 RUN mkdir static && mv temp/* static/
 RUN rm -r temp
