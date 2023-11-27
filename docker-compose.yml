@@ -7,7 +7,7 @@ services:
   #   ports:
   #     - 8000:8000
   #   environment:
-  #     - REDIS_URL="redis://0.0.0.0:6379"
+  #     - REDIS_URL=redis://cache:6379
   # dag-worker:
   #   build:
   #     context: .
@@ -17,8 +17,9 @@ services:
   #     replicas: 2
   #   restart: always
   #   environment:
-  #     - REDIS_URL="redis://0.0.0.0:6379"
+  #     - REDIS_URL=redis://cache:6379
   cache:
+      container_name: cache
       image: redis
       restart: always
       ports:
