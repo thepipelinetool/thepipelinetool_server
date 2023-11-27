@@ -161,8 +161,8 @@ async fn main() {
 
     let now = Utc::now();
 
-    // catchup(&now, pool.clone());
-    // scheduler(&now, pool.clone());
+    catchup(&now, pool.clone());
+    scheduler(&now, pool.clone());
     check_timeout(pool.clone());
 
     let app = Router::new()
