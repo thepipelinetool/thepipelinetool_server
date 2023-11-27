@@ -2,14 +2,8 @@ name: build
 
 on:
   push:
-    branches:
-      - '**'
-    paths:
-      - .github/workflows/build.yml
-      - server/**
-      - server.Dockerfile
-      - worker.Dockerfile
-      - Cargo.toml
+    tags:
+      - '*'
 jobs:
   server:
     runs-on: ubuntu-latest
@@ -26,6 +20,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: little-core-labs/get-git-tag@v3.0.1
+        id: get_version
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
@@ -33,7 +29,7 @@ jobs:
           file: server.Dockerfile
           push: true
           platforms: linux/amd64, linux/arm64
-          tags: ghcr.io/thepipelinetool/server:latest
+          tags: ghcr.io/thepipelinetool/server:latest, ghcr.io/thepipelinetool/server:${{ steps.get_version.outputs.tag }}
           cache-from: type=registry,ref=ghcr.io/thepipelinetool/server:buildcache
           cache-to: type=registry,ref=ghcr.io/thepipelinetool/server:buildcache,mode=max
   worker:
@@ -51,6 +47,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: little-core-labs/get-git-tag@v3.0.1
+        id: get_version
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
@@ -58,6 +56,6 @@ jobs:
           file: worker.Dockerfile
           push: true
           platforms: linux/amd64, linux/arm64
-          tags: ghcr.io/thepipelinetool/worker:latest
+          tags: ghcr.io/thepipelinetool/worker:latest, ghcr.io/thepipelinetool/worker:${{ steps.get_version.outputs.tag }}
           cache-from: type=registry,ref=ghcr.io/thepipelinetool/worker:buildcache
           cache-to: type=registry,ref=ghcr.io/thepipelinetool/worker:buildcache,mode=max
