@@ -55,8 +55,8 @@ jobs:
           context: .
           file: worker.Dockerfile
           push: true
-          args:
-            - VERSION=${{ steps.get_version.outputs.tag }}
+          build-args: |
+            VERSION=${{ steps.get_version.outputs.tag }}
           platforms: linux/amd64, linux/arm64
           tags: ghcr.io/thepipelinetool/worker:latest, ghcr.io/thepipelinetool/worker:${{ steps.get_version.outputs.tag }}
           cache-from: type=registry,ref=ghcr.io/thepipelinetool/worker:buildcache
