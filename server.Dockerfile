@@ -16,6 +16,13 @@ RUN cargo install --path . --bin server
 
 FROM rust:latest
 WORKDIR /server
+
+RUN curl -L -o web.zip https://github.com/thepipelinetool/thepipelinetool_ui/releases/download/2023-11-20/web.zip
+RUN unzip web.zip -d temp
+RUN mkdir static && mv temp/* static/
+RUN rm -r temp
+RUN rm web.zip
+
 COPY --from=server_builder /usr/local/cargo/bin/server /usr/local/bin/server
 
 EXPOSE 8000

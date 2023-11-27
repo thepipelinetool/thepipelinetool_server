@@ -13,6 +13,8 @@ use server::{
     _get_all_tasks, _get_dags, _get_task, _get_task_result, _get_task_status, _trigger_run,
     redis_runner::RedisRunner,
 };
+use tower_http::services::ServeDir;
+use std::path::PathBuf;
 use std::str::from_utf8;
 use thepipelinetool::prelude::*;
 use tower_http::compression::CompressionLayer;
@@ -164,6 +166,7 @@ async fn main() {
     check_timeout(pool.clone());
 
     let app = Router::new()
+        .nest_service("/", ServeDir::new(PathBuf::from("static")))
         .route("/ping", get(ping))
         .route("/dags", get(get_dags))
         .route("/runs/:dag_name", get(get_runs))
