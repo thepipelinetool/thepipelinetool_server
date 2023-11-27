@@ -20,6 +20,8 @@ RUN cargo install --path . --bin server
 FROM rust:latest
 WORKDIR /server
 
+ARG VERSION
+
 RUN curl -L -o web.zip https://github.com/thepipelinetool/thepipelinetool_ui/releases/download/${VERSION}/web.zip
 RUN unzip web.zip -d temp
 RUN mkdir static && mv temp/* static/
