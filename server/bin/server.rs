@@ -42,6 +42,36 @@ async fn get_runs(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Jso
     .into()
 }
 
+#[timed(duration(printer = "debug!"))]
+async fn get_next_run(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Json<Value> {
+    // json!(RedisRunner::get_runs(&dag_name, pool)
+    //     .await
+    //     .iter()
+    //     .map(|r| json!({
+    //         "run_id": r.run_id.to_string(),
+    //         "date": r.date,
+    //     }))
+    //     .collect::<Vec<Value>>())
+    // .into()
+    todo!()
+}
+
+#[timed(duration(printer = "debug!"))]
+async fn get_last_run(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Json<Value> {
+    // TODO optimize
+    // json!(RedisRunner::get_runs(&dag_name, pool)
+    //     .await
+    //     .iter()
+        
+    //     .map(|r| json!({
+    //         "run_id": r.run_id.to_string(),
+    //         "date": r.date,
+    //     }))
+    //     .collect::<Vec<Value>>())
+    // .into()
+    todo!()
+}
+
 // TODO return only statuses?
 async fn get_runs_with_tasks(
     Path(dag_name): Path<String>,
@@ -170,6 +200,8 @@ async fn main() {
         .route("/ping", get(ping))
         .route("/dags", get(get_dags))
         .route("/runs/:dag_name", get(get_runs))
+        .route("/next_run/:dag_name", get(get_next_run))
+        .route("/last_run/:dag_name", get(get_last_run))
         .route("/runs_with_tasks/:dag_name", get(get_runs_with_tasks))
         .route("/trigger/:dag_name", get(trigger))
         .route("/task_status/:run_id/:task_id", get(get_task_status))
