@@ -10,6 +10,7 @@ use timed::timed;
 
 use crate::statics::_get_hash;
 
+pub mod options;
 pub mod catchup;
 pub mod check_timeout;
 pub mod redis_runner;
@@ -67,7 +68,7 @@ pub fn _get_dags() -> Vec<String> {
         Ok(entries) => entries
             .filter_map(|entry| {
                 let path = entry.unwrap().path();
-                if path.is_file() {
+                if path.is_file() && path.extension().is_none() {
                     Some(path)
                 } else {
                     None

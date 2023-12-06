@@ -6,7 +6,7 @@ use thepipelinetool::prelude::*;
 use crate::{
     _get_dags, _trigger_run,
     redis_runner::RedisRunner,
-    statics::{_get_hash, _get_options},
+    statics::{_get_hash, _get_options}, options::DagOptions,
 };
 
 pub fn catchup(up_to: &DateTime<Utc>, pool: Pool) {
