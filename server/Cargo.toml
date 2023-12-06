@@ -12,7 +12,8 @@ serde_json = "1.0"
 serde = { version = "1.0.152", features = ["derive"] }
 timed = "0.2.1"
 
-thepipelinetool = { path = "../../thepipelinetool/thepipelinetool", version = "0.1.215" }
+thepipelinetool = { path = "../../thepipelinetool/thepipelinetool", version = "0.1.216" }
+thepipelinetool_utils = { path = "../../thepipelinetool/thepipelinetool_utils", version = "0.1.2" }
 log = "0.4.20"
 env_logger = "0.10.0"
 deadpool = { version = "0.10.0", features = ["managed", "rt_tokio_1"] }
