@@ -3,7 +3,7 @@ use std::time::Duration;
 use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DagOptions {
     #[serde(default)]
     pub schedule: Option<String>,

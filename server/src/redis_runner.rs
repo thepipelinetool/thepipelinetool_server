@@ -111,6 +111,19 @@ impl RedisRunner {
     }
 
     #[timed(duration(printer = "debug!"))]
+    pub async fn get_last_run(dag_name: &str, pool: Pool) -> Option<Run> {
+        let mut conn = pool.get().await.unwrap();
+        cmd("LRANGE")
+            .arg(format!("{RUNS_KEY}:{dag_name}"))
+            .arg(0)
+            .arg(-1)
+            .query_async::<_, Vec<String>>(&mut conn)
+            .await
+            .unwrap_or_default()
+            .first().map(|run| serde_json::from_str(run).unwrap())
+    }
+
+    #[timed(duration(printer = "debug!"))]
     pub async fn contains_logical_date(
         dag_name: &str,
         dag_hash: &str,
@@ -269,7 +282,7 @@ impl Runner for RedisRunner {
     fn create_new_run(
         &mut self,
         dag_name: &str,
-        dag_hash: &str,
+        _dag_hash: &str, // TODO
         logical_date: DateTime<Utc>,
     ) -> usize {
         tokio::task::block_in_place(|| {

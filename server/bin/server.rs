@@ -2,7 +2,8 @@ use axum::extract::State;
 use axum::{extract::Path, http::Method, Json, Router};
 use chrono::Utc;
 use deadpool_redis::Pool;
-use log::debug;
+use log::{debug, info};
+use saffron::Cron;
 use serde_json::{json, Value};
 use server::catchup::catchup;
 use server::check_timeout::check_timeout;
@@ -13,12 +14,12 @@ use server::{
     _get_all_tasks, _get_dags, _get_task, _get_task_result, _get_task_status, _trigger_run,
     redis_runner::RedisRunner,
 };
-use tower_http::services::ServeDir;
 use std::path::PathBuf;
 use std::str::from_utf8;
 use thepipelinetool::prelude::*;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 
 use axum::routing::get;
@@ -43,33 +44,72 @@ async fn get_runs(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Jso
 }
 
 #[timed(duration(printer = "debug!"))]
-async fn get_next_run(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Json<Value> {
-    // json!(RedisRunner::get_runs(&dag_name, pool)
-    //     .await
-    //     .iter()
-    //     .map(|r| json!({
-    //         "run_id": r.run_id.to_string(),
-    //         "date": r.date,
-    //     }))
-    //     .collect::<Vec<Value>>())
-    // .into()
-    todo!()
+async fn get_next_run(Path(dag_name): Path<String>) -> Json<Value> {
+    let options = _get_options(&dag_name);
+
+    info!("{:#?}", options);
+
+    if let Some(schedule) = &options.schedule {
+
+        match schedule.parse::<Cron>() {
+            Ok(cron) => {
+                if !cron.any() {
+                    info!("Cron will never match any given time!");
+                    return json!([]).into();
+                }
+
+                if let Some(start_date) = options.start_date {
+                    info!("Start date: {start_date}");
+                } else {
+                    info!("Start date: None");
+                }
+
+                info!("Upcoming:");
+                let futures =
+                    cron.clone()
+                        .iter_from(if let Some(start_date) = options.start_date {
+                            if options.catchup || start_date > Utc::now() {
+                                start_date.into()
+                            } else {
+                                Utc::now()
+                            }
+                        } else {
+                            Utc::now()
+                        });
+                let mut next_runs = vec![];
+                for time in futures.take(1) {
+                    if !cron.contains(time) {
+                        info!("Failed check! Cron does not contain {}.", time);
+                        break;
+                    }
+                    if let Some(end_date) = options.end_date {
+                        if time > end_date {
+                            break;
+                        }
+                    }
+                    next_runs.push(json!({
+                        "date": format!("{}", time.format("%F %R"))
+                    }));
+                    info!("  {}", time.format("%F %R"));
+                }
+
+                return json!(next_runs).into();
+            }
+            Err(err) => info!("{err}: {schedule}"),
+        }
+    }
+
+    json!([]).into()
 }
 
 #[timed(duration(printer = "debug!"))]
 async fn get_last_run(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Json<Value> {
-    // TODO optimize
-    // json!(RedisRunner::get_runs(&dag_name, pool)
-    //     .await
-    //     .iter()
-        
-    //     .map(|r| json!({
-    //         "run_id": r.run_id.to_string(),
-    //         "date": r.date,
-    //     }))
-    //     .collect::<Vec<Value>>())
-    // .into()
-    todo!()
+    let r = RedisRunner::get_last_run(&dag_name, pool).await;
+
+    match r {
+        Some(run) => json!([run]).into(),
+        None => json!([]).into(),
+    }
 }
 
 // TODO return only statuses?
@@ -184,7 +224,7 @@ async fn trigger(Path(dag_name): Path<String>, State(pool): State<Pool>) {
 
 #[tokio::main]
 async fn main() {
-    std::env::set_var("RUST_LOG", "debug");
+    std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
     let pool = get_redis_pool();
