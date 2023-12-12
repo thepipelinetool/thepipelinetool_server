@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use deadpool_redis::Pool;
 use saffron::Cron;
-use thepipelinetool::prelude::*;
 
 use crate::{
     _get_dags, _trigger_run,

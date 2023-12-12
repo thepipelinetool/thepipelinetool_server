@@ -98,7 +98,7 @@ pub fn _get_options(dag_name: &str) -> DagOptions {
         let mut path = _get_dag_path_by_name(dag_name);
         path.set_extension("json");
 
-        if let Some(options) = value_from_file::<DagOptions>(&path).ok() {
+        if let Ok(options) = value_from_file::<DagOptions>(&path) {
             dag_options.insert(dag_name.to_owned(), options);
         } else {
             dag_options.insert(dag_name.to_owned(), DagOptions::default());
