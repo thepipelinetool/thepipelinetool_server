@@ -177,6 +177,16 @@ async fn get_task_status(
         .to_owned()
 }
 
+async fn get_run_status(
+    Path(run_id): Path<usize>,
+    State(pool): State<Pool>,
+) -> String {
+    // from_utf8(&[_get_task_status(run_id, task_id, pool).as_u8()])
+    //     .unwrap()
+    //     .to_owned()
+    todo!()
+}
+
 async fn get_task_result(
     Path((run_id, task_id)): Path<(usize, usize)>,
     State(pool): State<Pool>,
@@ -240,20 +250,21 @@ async fn main() {
         .route("/ping", get(ping))
         .route("/dags", get(get_dags))
         .route("/runs/:dag_name", get(get_runs))
-        .route("/next_run/:dag_name", get(get_next_run))
-        .route("/last_run/:dag_name", get(get_last_run))
-        .route("/runs_with_tasks/:dag_name", get(get_runs_with_tasks))
+        .route("/runs/next/:dag_name", get(get_next_run))
+        .route("/runs/last/:dag_name", get(get_last_run))
+        .route("/runs/all/:dag_name", get(get_runs_with_tasks))
         .route("/trigger/:dag_name", get(trigger))
-        .route("/task_status/:run_id/:task_id", get(get_task_status))
-        .route("/task_result/:run_id/:task_id", get(get_task_result))
-        .route("/log/:run_id/:task_id/:attempt", get(get_task_log))
+        .route("/statuses/:run_id", get(get_run_status))
+        .route("/statuses/:run_id/:task_id", get(get_task_status))
+        .route("/results/:run_id/:task_id", get(get_task_result))
+        .route("/results/all/:run_id/:task_id", get(get_all_task_results))
+        .route("/logs/:run_id/:task_id/:attempt", get(get_task_log))
         .route("/tasks/:run_id", get(get_all_tasks))
-        .route("/task_results/:run_id/:task_id", get(get_all_task_results))
-        .route("/task/:run_id/:task_id", get(get_task))
-        .route("/default_tasks/:dag_name", get(get_default_tasks))
-        .route("/default_task/:dag_name/:task_id", get(get_default_task))
-        .route("/graph/:run_id", get(get_run_graph))
-        .route("/default_graph/:dag_name", get(get_default_graph))
+        .route("/tasks/:run_id/:task_id", get(get_task))
+        .route("/tasks/default/:dag_name", get(get_default_tasks))
+        .route("/tasks/default/:dag_name/:task_id", get(get_default_task))
+        .route("/graphs/:run_id", get(get_run_graph))
+        .route("/graphs/default/:dag_name", get(get_default_graph))
         .layer(
             CorsLayer::new()
                 .allow_methods([Method::GET, Method::POST])
