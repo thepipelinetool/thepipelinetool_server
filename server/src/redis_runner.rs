@@ -338,13 +338,6 @@ impl Runner for RedisRunner {
     }
 
     #[timed(duration(printer = "debug!"))]
-    fn any_upstream_incomplete(&mut self, run_id: usize, task_id: usize) -> bool {
-        self.get_upstream(run_id, task_id)
-            .iter()
-            .any(|edge| !self.is_task_completed(run_id, *edge))
-    }
-
-    #[timed(duration(printer = "debug!"))]
     fn get_dependency_keys(
         &mut self,
         run_id: usize,
