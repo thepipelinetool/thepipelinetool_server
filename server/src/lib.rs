@@ -3,12 +3,13 @@ use std::{env, fs, io::ErrorKind, path::PathBuf};
 use chrono::{DateTime, Utc};
 use deadpool::Runtime;
 use deadpool_redis::{Config, Pool};
-use log::debug;
-use redis_runner::RedisRunner;
+use log::{debug, info};
+use redis_runner::{RedisRunner, Run};
+use saffron::Cron;
 use thepipelinetool::prelude::*;
 use timed::timed;
 
-use crate::statics::_get_hash;
+use crate::statics::{_get_hash, _get_options};
 
 pub mod options;
 pub mod catchup;
@@ -121,3 +122,70 @@ pub fn get_redis_pool() -> Pool {
 //         }
 //     };
 // }
+
+pub fn _get_next_run(dag_name: &str) -> Vec<Value> {
+    let options = _get_options(&dag_name);
+
+    info!("{:#?}", options);
+
+    if let Some(schedule) = &options.schedule {
+
+        match schedule.parse::<Cron>() {
+            Ok(cron) => {
+                if !cron.any() {
+                    info!("Cron will never match any given time!");
+                    return vec![];
+                }
+
+                if let Some(start_date) = options.start_date {
+                    info!("Start date: {start_date}");
+                } else {
+                    info!("Start date: None");
+                }
+
+                info!("Upcoming:");
+                let futures =
+                    cron.clone()
+                        .iter_from(if let Some(start_date) = options.start_date {
+                            if options.catchup || start_date > Utc::now() {
+                                start_date.into()
+                            } else {
+                                Utc::now()
+                            }
+                        } else {
+                            Utc::now()
+                        });
+                let mut next_runs = vec![];
+                for time in futures.take(1) {
+                    if !cron.contains(time) {
+                        info!("Failed check! Cron does not contain {}.", time);
+                        break;
+                    }
+                    if let Some(end_date) = options.end_date {
+                        if time > end_date {
+                            break;
+                        }
+                    }
+                    next_runs.push(json!({
+                        "date": format!("{}", time.format("%F %R"))
+                    }));
+                    info!("  {}", time.format("%F %R"));
+                }
+
+                return next_runs;
+            }
+            Err(err) => info!("{err}: {schedule}"),
+        }
+    }
+
+    vec![]
+}
+
+pub async fn _get_last_run(dag_name: &str, pool: Pool) -> Vec<Run> {
+    let r = RedisRunner::get_last_run(&dag_name, pool).await;
+
+    match r {
+        Some(run) => vec![run],
+        None => vec![],
+    }
+}

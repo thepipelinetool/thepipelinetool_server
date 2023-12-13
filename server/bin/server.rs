@@ -9,7 +9,7 @@ use server::catchup::catchup;
 use server::check_timeout::check_timeout;
 use server::scheduler::scheduler;
 use server::statics::{_get_default_edges, _get_default_tasks, _get_options};
-use server::{_get_all_task_results, get_redis_pool};
+use server::{_get_all_task_results, _get_last_run, _get_next_run, get_redis_pool};
 use server::{
     _get_all_tasks, _get_dags, _get_task, _get_task_result, _get_task_status, _trigger_run,
     redis_runner::RedisRunner,
@@ -45,71 +45,12 @@ async fn get_runs(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Jso
 
 #[timed(duration(printer = "debug!"))]
 async fn get_next_run(Path(dag_name): Path<String>) -> Json<Value> {
-    let options = _get_options(&dag_name);
-
-    info!("{:#?}", options);
-
-    if let Some(schedule) = &options.schedule {
-
-        match schedule.parse::<Cron>() {
-            Ok(cron) => {
-                if !cron.any() {
-                    info!("Cron will never match any given time!");
-                    return json!([]).into();
-                }
-
-                if let Some(start_date) = options.start_date {
-                    info!("Start date: {start_date}");
-                } else {
-                    info!("Start date: None");
-                }
-
-                info!("Upcoming:");
-                let futures =
-                    cron.clone()
-                        .iter_from(if let Some(start_date) = options.start_date {
-                            if options.catchup || start_date > Utc::now() {
-                                start_date.into()
-                            } else {
-                                Utc::now()
-                            }
-                        } else {
-                            Utc::now()
-                        });
-                let mut next_runs = vec![];
-                for time in futures.take(1) {
-                    if !cron.contains(time) {
-                        info!("Failed check! Cron does not contain {}.", time);
-                        break;
-                    }
-                    if let Some(end_date) = options.end_date {
-                        if time > end_date {
-                            break;
-                        }
-                    }
-                    next_runs.push(json!({
-                        "date": format!("{}", time.format("%F %R"))
-                    }));
-                    info!("  {}", time.format("%F %R"));
-                }
-
-                return json!(next_runs).into();
-            }
-            Err(err) => info!("{err}: {schedule}"),
-        }
-    }
-
-    json!([]).into()
+    json!(_get_next_run(&dag_name)).into()
 }
 
 #[timed(duration(printer = "debug!"))]
 async fn get_last_run(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Json<Value> {
-    let r = RedisRunner::get_last_run(&dag_name, pool).await;
-
-    match r {
-        Some(run) => json!([run]).into(),
-        None => json!([]).into(),
-    }
+    json!(_get_last_run(&dag_name, pool).await).into()
 }
 
 // TODO return only statuses?
@@ -177,10 +118,7 @@ async fn get_task_status(
         .to_owned()
 }
 
-async fn get_run_status(
-    Path(run_id): Path<usize>,
-    State(pool): State<Pool>,
-) -> String {
+async fn get_run_status(Path(run_id): Path<usize>, State(pool): State<Pool>) -> String {
     // from_utf8(&[_get_task_status(run_id, task_id, pool).as_u8()])
     //     .unwrap()
     //     .to_owned()
@@ -201,11 +139,13 @@ async fn get_task_log(
     RedisRunner::dummy(pool).get_log(run_id, task_id, attempt)
 }
 
-async fn get_dags() -> Json<Value> {
+async fn get_dags(State(pool): State<Pool>) -> Json<Value> {
     let mut result: Vec<Value> = vec![];
 
     for dag_name in _get_dags() {
         let mut options = serde_json::to_value(_get_options(&dag_name)).unwrap();
+        options["last_run"] = json!(_get_last_run(&dag_name, pool.clone()).await);
+        options["next_run"] = json!(_get_next_run(&dag_name));
         options["dag_name"] = dag_name.into();
         result.push(options);
     }
