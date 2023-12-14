@@ -143,11 +143,16 @@ async fn get_dags(State(pool): State<Pool>) -> Json<Value> {
     let mut result: Vec<Value> = vec![];
 
     for dag_name in _get_dags() {
-        let mut options = serde_json::to_value(_get_options(&dag_name)).unwrap();
-        options["last_run"] = json!(_get_last_run(&dag_name, pool.clone()).await);
-        options["next_run"] = json!(_get_next_run(&dag_name));
-        options["dag_name"] = dag_name.into();
-        result.push(options);
+        // let mut options = serde_json::to_value(_get_options(&dag_name)).unwrap();
+        // options["last_run"] = json!(_get_last_run(&dag_name, pool.clone()).await);
+        // options["next_run"] = json!(_get_next_run(&dag_name));
+        // options["dag_name"] = dag_name.into();
+        result.push(json!({
+            "last_run": _get_last_run(&dag_name, pool.clone()).await,
+            "next_run":_get_next_run(&dag_name),
+            "options":_get_options(&dag_name),
+            "dag_name": &dag_name,
+        }));
     }
 
     json!(result).into()
