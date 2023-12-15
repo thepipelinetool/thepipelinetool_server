@@ -204,7 +204,7 @@ async fn main() {
         .route("/runs/:dag_name", get(get_runs))
         .route("/runs/next/:dag_name", get(get_next_run))
         .route("/runs/last/:dag_name", get(get_last_run))
-        .route("/runs/recent/:dag_name", get(get_recent_runs))
+        .route("/runs/recent/:dag_name", get(get_recent_runs)) // TODO change to recent results?
         .route("/runs/all/:dag_name", get(get_runs_with_tasks))
         .route("/trigger/:dag_name", get(trigger))
         .route("/statuses/:run_id", get(get_run_status))
