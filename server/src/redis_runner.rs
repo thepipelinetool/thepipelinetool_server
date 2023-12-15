@@ -115,7 +115,8 @@ impl RedisRunner {
         let mut conn = pool.get().await.unwrap();
         cmd("LRANGE")
             .arg(format!("{RUNS_KEY}:{dag_name}"))
-            .arg(0)
+            .arg(-1)
+            .arg(-1)
             .arg(-1)
             .query_async::<_, Vec<String>>(&mut conn)
             .await
