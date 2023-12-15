@@ -9,7 +9,9 @@ use server::catchup::catchup;
 use server::check_timeout::check_timeout;
 use server::scheduler::scheduler;
 use server::statics::{_get_default_edges, _get_default_tasks, _get_options};
-use server::{_get_all_task_results, _get_last_run, _get_next_run, get_redis_pool};
+use server::{
+    _get_all_task_results, _get_last_run, _get_next_run, _get_recent_runs, get_redis_pool,
+};
 use server::{
     _get_all_tasks, _get_dags, _get_task, _get_task_result, _get_task_status, _trigger_run,
     redis_runner::RedisRunner,
@@ -51,6 +53,11 @@ async fn get_next_run(Path(dag_name): Path<String>) -> Json<Value> {
 #[timed(duration(printer = "debug!"))]
 async fn get_last_run(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Json<Value> {
     json!(_get_last_run(&dag_name, pool).await).into()
+}
+
+#[timed(duration(printer = "debug!"))]
+async fn get_recent_runs(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Json<Value> {
+    json!(_get_recent_runs(&dag_name, pool).await).into()
 }
 
 // TODO return only statuses?
@@ -197,6 +204,7 @@ async fn main() {
         .route("/runs/:dag_name", get(get_runs))
         .route("/runs/next/:dag_name", get(get_next_run))
         .route("/runs/last/:dag_name", get(get_last_run))
+        .route("/runs/recent/:dag_name", get(get_recent_runs))
         .route("/runs/all/:dag_name", get(get_runs_with_tasks))
         .route("/trigger/:dag_name", get(trigger))
         .route("/statuses/:run_id", get(get_run_status))

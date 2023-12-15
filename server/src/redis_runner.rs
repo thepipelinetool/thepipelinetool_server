@@ -124,11 +124,19 @@ impl RedisRunner {
             .map(|run| serde_json::from_str(run).unwrap())
     }
 
+    // #[timed(duration(printer = "debug!"))]
+    pub async fn get_recent_runs(dag_name: &str, pool: Pool) -> Vec<Run> {
+        let mut conn = pool.get().await.unwrap();
+        cmd("LRANGE")
+            .arg(format!("{RUNS_KEY}:{dag_name}"))
+            .arg(-10)
             .arg(-1)
             .query_async::<_, Vec<String>>(&mut conn)
             .await
             .unwrap_or_default()
-            .first().map(|run| serde_json::from_str(run).unwrap())
+            .iter()
+            .map(|run| serde_json::from_str(run).unwrap())
+            .collect()
     }
 
     #[timed(duration(printer = "debug!"))]

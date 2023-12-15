@@ -189,3 +189,7 @@ pub async fn _get_last_run(dag_name: &str, pool: Pool) -> Vec<Run> {
         None => vec![],
     }
 }
+
+pub async fn _get_recent_runs(dag_name: &str, pool: Pool) -> Vec<Run> {
+    RedisRunner::get_recent_runs(&dag_name, pool).await
+}
