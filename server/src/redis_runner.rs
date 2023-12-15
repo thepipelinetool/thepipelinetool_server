@@ -117,6 +117,13 @@ impl RedisRunner {
             .arg(format!("{RUNS_KEY}:{dag_name}"))
             .arg(-1)
             .arg(-1)
+            .query_async::<_, Vec<String>>(&mut conn)
+            .await
+            .unwrap_or_default()
+            .first()
+            .map(|run| serde_json::from_str(run).unwrap())
+    }
+
             .arg(-1)
             .query_async::<_, Vec<String>>(&mut conn)
             .await
