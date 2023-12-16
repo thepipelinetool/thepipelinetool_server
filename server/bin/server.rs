@@ -2,8 +2,7 @@ use axum::extract::State;
 use axum::{extract::Path, http::Method, Json, Router};
 use chrono::Utc;
 use deadpool_redis::Pool;
-use log::{debug, info};
-use saffron::Cron;
+use log::debug;
 use serde_json::{json, Value};
 use server::catchup::catchup;
 use server::check_timeout::check_timeout;
@@ -32,6 +31,7 @@ async fn ping() -> &'static str {
     "pong"
 }
 
+// TODO paginate
 #[timed(duration(printer = "debug!"))]
 async fn get_runs(Path(dag_name): Path<String>, State(pool): State<Pool>) -> Json<Value> {
     json!(RedisRunner::get_runs(&dag_name, pool)
@@ -79,10 +79,6 @@ async fn get_runs_with_tasks(
     }
     res.into()
 }
-
-// async fn get_options(Path(dag_name): Path<String>) -> Json<Value> {
-//     _get_options(&dag_name).into()
-// }
 
 async fn get_default_tasks(Path(dag_name): Path<String>) -> Json<Value> {
     serde_json::to_value(&_get_default_tasks(&dag_name))
@@ -150,10 +146,6 @@ async fn get_dags(State(pool): State<Pool>) -> Json<Value> {
     let mut result: Vec<Value> = vec![];
 
     for dag_name in _get_dags() {
-        // let mut options = serde_json::to_value(_get_options(&dag_name)).unwrap();
-        // options["last_run"] = json!(_get_last_run(&dag_name, pool.clone()).await);
-        // options["next_run"] = json!(_get_next_run(&dag_name));
-        // options["dag_name"] = dag_name.into();
         result.push(json!({
             "last_run": _get_last_run(&dag_name, pool.clone()).await,
             "next_run":_get_next_run(&dag_name),
