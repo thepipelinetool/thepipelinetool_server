@@ -311,7 +311,6 @@ impl Runner for RedisRunner {
                     .await
                     .unwrap();
 
-                let mut conn = self.pool.get().await.unwrap();
                 cmd("RPUSH")
                     .arg(format!("{RUNS_KEY}:{dag_name}"))
                     .arg(
