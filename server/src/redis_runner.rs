@@ -63,21 +63,17 @@ impl RedisRunner {
     }
 
     #[timed(duration(printer = "debug!"))]
-    pub fn get_temp_queue(&self) -> Vec<QueuedTask> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                let mut conn = self.pool.get().await.unwrap();
+    pub async fn get_temp_queue(&self) -> Vec<QueuedTask> {
+        let mut conn = self.pool.get().await.unwrap();
 
-                cmd("SMEMBERS")
-                    .arg("tmpqueue") // TODO timeout arg
-                    .query_async::<_, Vec<String>>(&mut conn)
-                    .await
-                    .unwrap()
-                    .iter()
-                    .map(|s| serde_json::from_str(s).unwrap())
-                    .collect()
-            })
-        })
+        cmd("SMEMBERS")
+            .arg("tmpqueue") // TODO timeout arg
+            .query_async::<_, Vec<String>>(&mut conn)
+            .await
+            .unwrap()
+            .iter()
+            .map(|s| serde_json::from_str(s).unwrap())
+            .collect()
     }
 
     #[timed(duration(printer = "debug!"))]

@@ -12,7 +12,7 @@ pub fn check_timeout(pool: Pool) {
     tokio::spawn(async move {
         let mut dummy = RedisRunner::dummy(pool);
         loop {
-            for queued_task in dummy.get_temp_queue() {
+            for queued_task in dummy.get_temp_queue().await {
                 let task = dummy.get_task_by_id(queued_task.run_id, queued_task.task_id);
                 if let Some(timeout) = task.options.timeout {
                     let now: DateTime<FixedOffset> = Utc::now().into();
