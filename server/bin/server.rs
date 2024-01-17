@@ -15,6 +15,7 @@ use server::{
     _get_all_tasks, _get_dags, _get_task, _get_task_result, _get_task_status, _trigger_run,
     redis_runner::RedisRunner,
 };
+use tokio::net::TcpListener;
 use std::path::PathBuf;
 use std::str::from_utf8;
 use thepipelinetool::prelude::*;
@@ -219,8 +220,9 @@ async fn main() {
         .layer(CompressionLayer::new())
         .with_state(pool);
 
-    axum::Server::bind(&"0.0.0.0:8000".parse().unwrap())
-        .serve(app.into_make_service())
+    let listener = TcpListener::bind("0.0.0.0:8000").await.unwrap();
+
+    axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
 }
