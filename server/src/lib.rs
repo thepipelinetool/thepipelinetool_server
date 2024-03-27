@@ -126,7 +126,7 @@ pub fn get_redis_pool() -> Pool {
 pub fn _get_next_run(dag_name: &str) -> Vec<Value> {
     let options = _get_options(&dag_name);
 
-    info!("{:#?}", options);
+    // info!("{:#?}", options);
 
     if let Some(schedule) = &options.schedule {
 

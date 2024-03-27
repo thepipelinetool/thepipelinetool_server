@@ -94,7 +94,7 @@ pub fn _get_options(dag_name: &str) -> DagOptions {
         //     .arg("options")
         //     .output()
         //     .expect("failed to run");
-        dbg!(&dag_name);
+        // dbg!(&dag_name);
         let mut path = _get_dag_path_by_name(dag_name);
         path.set_extension("json");
 
