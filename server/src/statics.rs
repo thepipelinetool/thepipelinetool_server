@@ -7,7 +7,7 @@ use std::{
 
 use log::debug;
 use parking_lot::Mutex;
-use thepipelinetool::prelude::Task;
+use thepipelinetool::server::Task;
 use thepipelinetool_utils::{value_from_file, value_to_file};
 use timed::timed;
 
@@ -17,6 +17,42 @@ static TASKS: OnceLock<Arc<Mutex<HashMap<String, Vec<Task>>>>> = OnceLock::new()
 static HASHES: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
 static EDGES: OnceLock<Arc<Mutex<HashMap<String, HashSet<(usize, usize)>>>>> = OnceLock::new();
 static DAG_OPTIONS: OnceLock<Arc<Mutex<HashMap<String, DagOptions>>>> = OnceLock::new();
+
+#[derive(PartialEq)]
+enum DagType {
+    Binary,
+    YAML,
+}
+
+
+
+fn get_dag_type_by_path(path: PathBuf) -> DagType {
+    if let Some(ext) = path.extension() {
+        match ext.to_str().unwrap() {
+            "yaml" => {
+                return DagType::YAML;
+            }
+            _ => {},
+        }
+    }
+    DagType::Binary
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use crate::statics::DagType;
+
+    use super::get_dag_type_by_path;
+
+    #[test]
+    fn test_get_dag_type_by_path() {
+        assert!(get_dag_type_by_path(Path::new("hello").to_path_buf()) == DagType::Binary);
+        assert!(get_dag_type_by_path(Path::new("hello.yaml").to_path_buf()) == DagType::YAML);
+
+    }
+}
 
 #[timed(duration(printer = "debug!"))]
 pub fn _get_default_tasks(dag_name: &str) -> Vec<Task> {

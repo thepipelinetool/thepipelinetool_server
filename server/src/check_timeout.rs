@@ -3,7 +3,7 @@ use std::time::Duration;
 use chrono::{DateTime, FixedOffset, Utc};
 
 use deadpool_redis::Pool;
-use thepipelinetool::prelude::{BlanketRunner, Runner, TaskResult};
+use thepipelinetool::server::{BlanketRunner, Runner, TaskResult};
 use tokio::time::sleep;
 
 use crate::redis_runner::RedisRunner;

@@ -1,6 +1,6 @@
 use server::{_get_dag_path_by_name, get_redis_pool, redis_runner::RedisRunner};
 use std::time::Duration;
-use thepipelinetool::prelude::*;
+use thepipelinetool::server::*;
 use tokio::time::sleep;
 
 #[tokio::main]

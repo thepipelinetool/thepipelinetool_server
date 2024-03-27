@@ -6,7 +6,7 @@ use deadpool_redis::{Config, Pool};
 use log::{debug, info};
 use redis_runner::{RedisRunner, Run};
 use saffron::Cron;
-use thepipelinetool::prelude::*;
+use thepipelinetool::server::*;
 use timed::timed;
 
 use crate::statics::{_get_hash, _get_options};
