@@ -18,42 +18,6 @@ static HASHES: OnceLock<Arc<Mutex<HashMap<String, String>>>> = OnceLock::new();
 static EDGES: OnceLock<Arc<Mutex<HashMap<String, HashSet<(usize, usize)>>>>> = OnceLock::new();
 static DAG_OPTIONS: OnceLock<Arc<Mutex<HashMap<String, DagOptions>>>> = OnceLock::new();
 
-#[derive(PartialEq)]
-enum DagType {
-    Binary,
-    YAML,
-}
-
-
-
-fn get_dag_type_by_path(path: PathBuf) -> DagType {
-    if let Some(ext) = path.extension() {
-        match ext.to_str().unwrap() {
-            "yaml" => {
-                return DagType::YAML;
-            }
-            _ => {},
-        }
-    }
-    DagType::Binary
-}
-
-#[cfg(test)]
-mod tests {
-    use std::path::Path;
-
-    use crate::statics::DagType;
-
-    use super::get_dag_type_by_path;
-
-    #[test]
-    fn test_get_dag_type_by_path() {
-        assert!(get_dag_type_by_path(Path::new("hello").to_path_buf()) == DagType::Binary);
-        assert!(get_dag_type_by_path(Path::new("hello.yaml").to_path_buf()) == DagType::YAML);
-
-    }
-}
-
 #[timed(duration(printer = "debug!"))]
 pub fn _get_default_tasks(dag_name: &str) -> Vec<Task> {
     let mut tasks = TASKS
@@ -149,7 +113,7 @@ pub fn _get_options(dag_name: &str) -> DagOptions {
 #[timed(duration(printer = "debug!"))]
 pub fn _set_options(dag_name: &str, options: DagOptions) {
     let mut path = _get_dag_path_by_name(dag_name);
-    path.set_extension("json");    
+    path.set_extension("json");
     value_to_file(&options, &path);
 
     let mut dag_options = DAG_OPTIONS
