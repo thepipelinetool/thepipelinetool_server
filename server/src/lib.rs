@@ -11,9 +11,9 @@ use timed::timed;
 
 use crate::statics::{_get_hash, _get_options};
 
-pub mod options;
 pub mod catchup;
 pub mod check_timeout;
+pub mod options;
 pub mod redis_runner;
 pub mod scheduler;
 pub mod statics;
@@ -129,7 +129,6 @@ pub fn _get_next_run(dag_name: &str) -> Vec<Value> {
     // info!("{:#?}", options);
 
     if let Some(schedule) = &options.schedule {
-
         match schedule.parse::<Cron>() {
             Ok(cron) => {
                 if !cron.any() {

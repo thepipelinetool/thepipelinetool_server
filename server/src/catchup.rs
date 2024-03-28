@@ -4,8 +4,9 @@ use saffron::Cron;
 
 use crate::{
     _get_dags, _trigger_run,
+    options::DagOptions,
     redis_runner::RedisRunner,
-    statics::{_get_hash, _get_options}, options::DagOptions,
+    statics::{_get_hash, _get_options},
 };
 
 pub fn catchup(up_to: &DateTime<Utc>, pool: Pool) {
